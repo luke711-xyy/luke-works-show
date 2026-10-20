@@ -10,6 +10,17 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 图文排版、交互细化与累计本地修改发布
+
+- 运行代码提交：`15f978cb1f635e21f0f9226bdf761d1e447831b9`，已推送 GitHub `main`；本次发布记录另作纯文档提交。
+- 不变部署地址：https://7de69256.luke-works-show.pages.dev/。
+- 入口 `index-CHqBC-Py.js`、场景 `PondScene-DwTpbuyT.js`、样式 `index-ChaQ0OJp.css`。
+- 发布此前已完成的累计修改：案例图文嵌入、标题与正文成组绕图、LanBridge 放大左图及固定右列、去除紫色焦点框、Worldmaker 作品网址、加速往返相机切换、手机鱼名按露出比例渐显隐，以及三行诗句加载页和原生锦鲤光标。两叶／莲花的新参考构图仍是待确认方案，未实施、不包含在本次部署。
+- 发布前完整重跑 181 项测试（22 文件）通过，TypeScript、生产构建、格式与差异检查通过。五尺寸全项目排版、八尺寸 LanBridge、焦点、项目入口等此前实际应用验收见 `docs/BROWSER_CHECKS.md`；未把桌面尺寸和合成触摸验证称为真机认证。
+- 正式域名、默认平台域名、不变部署域名分别检查首页、Worldmaker 查询链接、LanBridge 深链接：共 9 条 HTTP 200，并引用新入口；每个域名的 7 个 JS/CSS 及 2 个锦鲤光标 SVG 均与本地构建逐字节一致。24 个原素材哈希、23 张原彩图片像素一致性及 48 个正式域名媒体 URL 检查通过。
+- 正式域名实际浏览确认：LanBridge 使用新两列图文布局，自动聚焦关闭按钮无 outline；主动点图正常打开 01/01、100%，放大至 125% 出现还原，Escape 关闭图片层并返回原图入口。Worldmaker 同时有源码与 `https://moce.luke-xu.asia/` 作品链接；关闭后回到长卷，并能返回荷塘。检查窗口无 warn/error。
+- 线上详情截图 `.impeccable/review/collection-release-live.png`；截图、原始素材、Word 文档和浏览器测试夹具不进入静态构建。未修改 DNS、其他站点绑定、认证或安全策略。
+
 ## 2026-10-21 连续场景与可缩放图集发布
 
 - 运行代码提交：`729905ebfbc7068e014a0c0f2bc4d324854197f2`，已推送 GitHub `main`；部署后的本记录单独提交。
