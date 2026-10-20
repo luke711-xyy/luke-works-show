@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>项目入口手势回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #373b30;
+      color: #f5e9cc;
+      font: 13px system-ui;
+    }
+    nav {
+      padding: 12px;
+      display: flex;
+      gap: 12px;
+    }
+    button {
+      padding: 8px 12px;
+    }
+    iframe {
+      width: 390px;
+      height: 700px;
+      border: 0;
+      display: block;
+    }
+    pre {
+      padding: 12px;
+      white-space: pre-wrap;
+    }
+  </style>
+  <nav>
+    <button id="repro">复现一次触摸</button>
+    <button id="suite">手机与电脑完整回归</button>
+  </nav>
+  <iframe title="实际作品集"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    import { Box3, Vector3 } from "three";
+    import { projects } from "/src/data/projects.ts";
+
+    const iframe = document.querySelector("iframe");
+    const report = document.querySelector("#report");
+    let busy = false,
+      results = [],
+      errors = [];
+    const state = () => ({
+      win: iframe.contentWindow,
+      doc: iframe.contentDocument,
+    });
+    const waitFor = async (check) => {
+      const start = performance.now();
+      while (!check()) {
+        if (performance.now() - start > 8000)
+          throw new Error("等待应用状态超时");
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    };
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 40));
+    const render = () =>
+      (report.textContent = JSON.stringify({ busy, results, errors }, null, 2));
+    const pointer = (target, type, point, pointerType) => {
+      const { win } = state();
+      target.dispatchEvent(
+        new win.PointerEvent(type, {
+          bubbles: true,
+          pointerType,
+          pointerId: 9,
+          isPrimary: true,
+          button: 0,
+          clientX: point.x,
+          clientY: point.y,
+        }),
+      );
+    };
+    const click = (target, point, detail = 1) => {
+      const { win } = state();
+      target.dispatchEvent(
+        new win.MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          detail,
+          clientX: point.x,
+          clientY: point.y,
+        }),
+      );
+    };
+    const load = async (id, width) => {
+      iframe.style.width = `${width}px`;
+      await new Promise((resolve) => {
+        iframe.addEventListener("load", resolve, { once: true });
+        iframe.src = `/works?focus=${id}`;
+      });
+      await waitFor(() => {
+        const { win, doc } = state();
+        return (
+          win.location.search.includes(id) &&
+          win.__pond &&
+          doc.querySelector(`[data-project="${id}"]`)?.dataset.sceneBound
+        );
+      });
+      await settle();
+    };
+    const pointOnLeaf = (id, region) => {
+      const { win, doc } = state();
+      const button = doc.querySelector(`[data-project="${id}"]`);
+      if (region === "title") {
+        const rect = button
+          .querySelector(".project-leaf-title")
+          .getBoundingClientRect();
+        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 3 };
+      }
+      const index = projects.findIndex((project) => project.id === id);
+      const leaf = win.__pond.scene.children
+        .flatMap((part) => part.children)
+        .find((part) => part.renderOrder === 40 + index);
+      const emblem = leaf.children.find(
+        (part) => part.renderOrder === 60 + index,
+      );
+      const radius =
+        Math.min(
+          win.innerWidth * (win.innerWidth < 640 ? 0.45 : 0.3),
+          700 * 0.46,
+          410,
+        ) * (index % 3 === 1 ? 0.92 : 1);
+      const position =
+        region === "icon"
+          ? new Box3().setFromObject(emblem).getCenter(new Vector3())
+          : new Vector3(-radius * 0.4, 0, radius * 0.25).applyMatrix4(
+              leaf.matrixWorld,
+            );
+      position.project(win.__pond.camera);
+      return {
+        x: ((position.x + 1) * win.innerWidth) / 2,
+        y: (1 - position.y) * 350,
+      };
+    };
+    const tap = async (project, width, region = "title") => {
+      await load(project.id, width);
+      const { doc } = state();
+      const point = pointOnLeaf(project.id, region);
+      const target = doc.elementFromPoint(point.x, point.y);
+      const pointerType = width < 640 ? "touch" : "mouse";
+      pointer(target, "pointerdown", point, pointerType);
+      pointer(target, "pointerup", point, pointerType);
+      await settle();
+      const prematureDialog = doc.querySelector(".project-detail[open]");
+      // WebKit can retarget the compatibility click after pointerup changes
+      // the hit tree. Exercise that sequence, not just pointerup in isolation.
+      const retarget =
+        prematureDialog?.querySelector(".image-open") ||
+        doc.elementFromPoint(point.x, point.y);
+      click(retarget, point);
+      await settle();
+      const opened = doc.querySelector(".project-detail[open]");
+      const unwantedViewer = Boolean(doc.querySelector(".image-viewer[open]"));
+      const result = {
+        id: project.id,
+        width,
+        region,
+        openedOnPointerUp: Boolean(prematureDialog),
+        detail: opened?.querySelector("h1")?.textContent,
+        unwantedViewer,
+        pass:
+          opened?.querySelector("h1")?.textContent === project.title &&
+          !unwantedViewer,
+      };
+      results.push(result);
+      if (unwantedViewer) doc.querySelector('[aria-label="关闭图片"]').click();
+      // A separate intentional tap on a screenshot must still work.
+      const image = opened?.querySelector(".image-open");
+      if (image) {
+        const r = image.getBoundingClientRect();
+        const p = { x: r.x + 20, y: r.y + 20 };
+        pointer(image, "pointerdown", p, pointerType);
+        pointer(image, "pointerup", p, pointerType);
+        click(image, p);
+        await settle();
+        result.intentionalImageTap = Boolean(
+          doc.querySelector(".image-viewer[open]"),
+        );
+        result.pass &&= result.intentionalImageTap;
+        doc.querySelector('[aria-label="关闭图片"]')?.click();
+        await settle();
+      }
+      render();
+    };
+    const dragAndKeyboard = async (width) => {
+      await load("mosic", width);
+      const { doc } = state();
+      const point = pointOnLeaf("mosic", "title");
+      const target = doc.elementFromPoint(point.x, point.y);
+      const moved = { x: point.x + 40, y: point.y };
+      const type = width < 640 ? "touch" : "mouse";
+      pointer(target, "pointerdown", point, type);
+      pointer(target, "pointermove", moved, type);
+      pointer(target, "pointerup", moved, type);
+      click(target, moved);
+      await settle();
+      results.push({
+        width,
+        test: "drag-does-not-open",
+        pass: !doc.querySelector(".project-detail[open]"),
+      });
+      click(doc.querySelector('[data-project="mosic"]'), point, 0);
+      await settle();
+      results.push({
+        width,
+        test: "keyboard-activation",
+        pass:
+          Boolean(doc.querySelector(".project-detail[open]")) &&
+          !doc.querySelector(".image-viewer[open]"),
+      });
+      render();
+    };
+    const run = async (full) => {
+      if (busy) return;
+      busy = true;
+      results = [];
+      errors = [];
+      render();
+      try {
+        if (!full) await tap(projects[0], 390);
+        else
+          for (const width of [390, 1280]) {
+            for (const project of projects)
+              for (const region of ["icon", "title", "empty"])
+                await tap(project, width, region);
+            await dragAndKeyboard(width);
+          }
+      } catch (error) {
+        errors.push(String(error));
+      } finally {
+        busy = false;
+        render();
+      }
+    };
+    document.querySelector("#repro").onclick = () => run(false);
+    document.querySelector("#suite").onclick = () => run(true);
+    iframe.src = "/works?focus=mosic";
+  </script>
+</html>

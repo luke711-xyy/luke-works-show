@@ -2,6 +2,13 @@
 
 本次使用实际 Chromium / Codex 内置浏览器。生产预览为 `http://127.0.0.1:5188/`。截图位于 `.impeccable/review/`，不是 AI 生成效果图。
 
+## 手机入口误开图片查看器（2026-10-21）
+
+- 修复前，在实际 React 应用的 390×700 iframe 中按 `pointerdown → pointerup → click` 顺序复现：`pointerup` 已打开详情，随后模拟浏览器将兼容点击重新命中到新出现的图片按钮，图片查看器误开。失败报告 `gesture-before.json` 明确为 `openedOnPointerUp=true`、`unwantedViewer=true`。
+- 修复只调整 `src/App.tsx` 的入口提交时机：抬手确认手势，最终点击统一激活语义叶片或 raycast 图标；取消、拖动、键盘、预热与同帧标题绑定不变。不添加图片禁点计时器，不改变视觉、图片、动画或滚动方向。
+- 新增可复跑夹具 `tests/gesture-navigation.html`，启动 `npm run dev` 后打开 `/tests/gesture-navigation.html`。先在旧实现观察失败，再验证修复：8 项目 × 图标/标题/空白 × 手机合成触摸/电脑鼠标共 48 条完整点击链，加上 4 条拖动/键盘检查全部通过；42 次进入详情后主动点图仍能打开查看器，兼容点击误开 0 次。
+- 完整 117 项单元测试、TypeScript、生产构建通过；生产预览的原生鼠标点击编钟只打开 MOSIC 详情，图片查看器未打开。独立只读复核无阻断问题。修复后完整报告为 `gesture-after.json`；上述触摸证据是 Chromium 合成事件，不是真机 Safari 测试。
+
 ## 题字、纸纹与累计交互修复（2026-10-21）
 
 - 暖黄纸纹加入多尺度纸浆变化、细颗粒和柔化短纤维，保持 512px 无缝重复；不对三级原彩图片添加任何滤镜。纸纹与补全题字的自托管字体使用版本查询参数更新回访缓存。

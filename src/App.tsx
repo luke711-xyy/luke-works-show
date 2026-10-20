@@ -400,7 +400,11 @@ export default function App() {
       undefined,
     ),
     pointerStart = useRef({ x: 0, y: 0 }),
-    projectPointer = useRef<{ id: ProjectId; pointerId: number } | null>(null),
+    projectPointer = useRef<{
+      id: ProjectId;
+      pointerId: number;
+      released: boolean;
+    } | null>(null),
     cancelledProjectTap = useRef(false),
     touchPondPointer = useRef(false),
     lastWidth = useRef(innerWidth);
@@ -759,7 +763,12 @@ export default function App() {
             : target.closest("button,a")
               ? null
               : scene.current?.projectAt(e.clientX, e.clientY);
-          if (id) projectPointer.current = { id, pointerId: e.pointerId };
+          if (id)
+            projectPointer.current = {
+              id,
+              pointerId: e.pointerId,
+              released: false,
+            };
         }
         touchPondPointer.current =
           e.pointerType === "touch" &&
@@ -788,25 +797,45 @@ export default function App() {
             Boolean(scene.current?.disturbLeafAt(e.clientX, e.clientY));
           if (!disturbedLeaf) scene.current?.selectAt(e.clientX, e.clientY);
         }
+        if (projectPointer.current?.pointerId === e.pointerId) {
+          if (isTap) projectPointer.current.released = true;
+          else {
+            projectPointer.current = null;
+            cancelledProjectTap.current = true;
+          }
+        }
+      }}
+      onClick={(e) => {
         const tap = projectPointer.current;
         projectPointer.current = null;
         if (
-          tap &&
-          tap.pointerId === e.pointerId &&
-          isTap &&
-          navRef.current.page === "works" &&
-          !navRef.current.detail &&
-          !travelling.current
-        ) {
-          const owner = target
-            .closest("[data-project]")
-            ?.getAttribute("data-project");
-          const hit = isProjectId(owner)
-            ? owner
-            : scene.current?.projectAt(e.clientX, e.clientY);
-          if ((!interactive || isProjectId(owner)) && (!hit || hit === tap.id))
-            detailClick(tap.id);
+          navRef.current.page !== "works" ||
+          navRef.current.detail ||
+          travelling.current
+        )
+          return;
+        const target = e.target as Element;
+        const owner = target
+          .closest("[data-project]")
+          ?.getAttribute("data-project");
+        // Native buttons also deliver keyboard/assistive activation here.
+        if (e.detail === 0 && isProjectId(owner)) {
+          detailClick(owner);
+          return;
         }
+        if (!tap?.released || cancelledProjectTap.current) return;
+        const hit = isProjectId(owner)
+          ? owner
+          : target.closest("button,a")
+            ? null
+            : scene.current?.projectAt(e.clientX, e.clientY);
+        // Keep the hit tree unchanged through pointerup. Opening a modal there
+        // lets WebKit's following compatibility click hit its new screenshot.
+        if (
+          (!target.closest("button,a") || isProjectId(owner)) &&
+          (!hit || hit === tap.id)
+        )
+          detailClick(tap.id);
       }}
       onPointerCancel={(e) => {
         projectPointer.current = null;
@@ -926,10 +955,6 @@ export default function App() {
                         "--base-clip": leafHitShape(88 + i),
                       } as CSSProperties
                     }
-                    onClick={(e) => {
-                      if (e.detail === 0 || !cancelledProjectTap.current)
-                        detailClick(p.id);
-                    }}
                     onPointerDown={() => preloadProjectCover(p.id)}
                     onPointerEnter={(e) => {
                       if (e.pointerType !== "touch")
