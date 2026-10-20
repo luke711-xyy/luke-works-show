@@ -1,0 +1,258 @@
+{
+  "mosic": [
+    {
+      "id": "mosic-1",
+      "kind": "image",
+      "source": "083e8b36eabd3cb34f5b0af7940f72a6.png",
+      "sha256": "2ae0060ea0f035447e30f07405f947b56176382df662b406879715507ee2579a",
+      "clear": "/media/mosic/mosic-1-original.png",
+      "dither": "/media/mosic/mosic-1-dither.webp",
+      "width": 2942,
+      "height": 1926
+    },
+    {
+      "id": "mosic-2",
+      "kind": "image",
+      "source": "0cc3c8893559d97a4c8d83567c51d903.png",
+      "sha256": "06522370e24454cba2bb3b5cb139ab7686a3651b1bdd46e74a803ecd653957dd",
+      "clear": "/media/mosic/mosic-2-original.png",
+      "dither": "/media/mosic/mosic-2-dither.webp",
+      "width": 2940,
+      "height": 1914
+    },
+    {
+      "id": "mosic-3",
+      "kind": "image",
+      "source": "279022cfd694ba18de00a8274d0f71a4.png",
+      "sha256": "1f57da4d0e681435931f08e092949980c7796ada225a7cd4c18e0e62832d5275",
+      "clear": "/media/mosic/mosic-3-original.png",
+      "dither": "/media/mosic/mosic-3-dither.webp",
+      "width": 2940,
+      "height": 1922
+    },
+    {
+      "id": "mosic-4",
+      "kind": "image",
+      "source": "f63f304fb5a4b306e67a26fd9f008374.png",
+      "sha256": "8376695107f48682a2863b3ce052b2440bfb42c8f4f285d769e01e44bb64c6f0",
+      "clear": "/media/mosic/mosic-4-original.png",
+      "dither": "/media/mosic/mosic-4-dither.webp",
+      "width": 2934,
+      "height": 1918
+    }
+  ],
+  "meet-countdown": [
+    {
+      "id": "meet-countdown-1",
+      "kind": "image",
+      "source": "1928420b0a79eb9ade1c035ca25b7224.png",
+      "sha256": "18f35903d23d5280a6ef8d06f31ed46d34ef519193fd67f91e9bf6913baabba0",
+      "clear": "/media/meet-countdown/meet-countdown-1-original.png",
+      "dither": "/media/meet-countdown/meet-countdown-1-dither.webp",
+      "width": 600,
+      "height": 1248
+    },
+    {
+      "id": "meet-countdown-2",
+      "kind": "image",
+      "source": "416b597ddcfe2c72312dc55258cf58d1.png",
+      "sha256": "8dd3c069f7619aad92dc5b5698c24958f5ccd5ca0fa7432208a7507958d3dd53",
+      "clear": "/media/meet-countdown/meet-countdown-2-original.png",
+      "dither": "/media/meet-countdown/meet-countdown-2-dither.webp",
+      "width": 2938,
+      "height": 1914
+    },
+    {
+      "id": "meet-countdown-3",
+      "kind": "image",
+      "source": "SCR-20261019-uale.jpeg",
+      "sha256": "61b6b3435f36316940eeed622007c0d2fa8d11c50a19951ddef75554526536ba",
+      "clear": "/media/meet-countdown/meet-countdown-3-original.jpeg",
+      "dither": "/media/meet-countdown/meet-countdown-3-dither.webp",
+      "width": 552,
+      "height": 726
+    }
+  ],
+  "water-reminder": [
+    {
+      "id": "water-reminder-1",
+      "kind": "image",
+      "source": "1163284815a973ed76d8f136653ff752.png",
+      "sha256": "368101c0ece4e430b703d75da37844579b05a28590ea5131268f048b140c5531",
+      "clear": "/media/water-reminder/water-reminder-1-original.png",
+      "dither": "/media/water-reminder/water-reminder-1-dither.webp",
+      "width": 1596,
+      "height": 1264
+    },
+    {
+      "id": "water-reminder-2",
+      "kind": "image",
+      "source": "534fbcfd69b64b15bb615d9b525874eb.png",
+      "sha256": "2410002a626c2eda19fbc3c47aadf7226396997ff00c5c211c5c55591b66548b",
+      "clear": "/media/water-reminder/water-reminder-2-original.png",
+      "dither": "/media/water-reminder/water-reminder-2-dither.webp",
+      "width": 1600,
+      "height": 1272
+    },
+    {
+      "id": "water-reminder-3",
+      "kind": "image",
+      "source": "725eff0e9a1cdea31d161339b4e863b3.png",
+      "sha256": "357546873c3da7caadba613a44ddda9eaa0c683dec80250fc2b63ca67d3ced53",
+      "clear": "/media/water-reminder/water-reminder-3-original.png",
+      "dither": "/media/water-reminder/water-reminder-3-dither.webp",
+      "width": 1610,
+      "height": 1268
+    },
+    {
+      "id": "water-reminder-4",
+      "kind": "image",
+      "source": "7bf59ec956b3cb0c79b03f25da9a4d9f.jpg",
+      "sha256": "58b1e5ece4a0fd1b8de0be0e008ec78ec61725fb29dfc8e3d55123efeb991261",
+      "clear": "/media/water-reminder/water-reminder-4-original.jpg",
+      "dither": "/media/water-reminder/water-reminder-4-dither.webp",
+      "width": 4096,
+      "height": 3072
+    },
+    {
+      "id": "water-reminder-5",
+      "kind": "image",
+      "source": "SCR-20261019-oele.png",
+      "sha256": "6bb45663da8897e5bfaee38bf9945b0bc83ccb7b728affa83663e8b68c28ee57",
+      "clear": "/media/water-reminder/water-reminder-5-original.png",
+      "dither": "/media/water-reminder/water-reminder-5-dither.webp",
+      "width": 1600,
+      "height": 1262
+    },
+    {
+      "id": "water-reminder-6",
+      "kind": "image",
+      "source": "b195d1b3b2c5d7c544e03377ecdf0663.png",
+      "sha256": "7ec1d9ac1fa5bd548add8c6cc8c446c6db28e4121ce4435eb56e38bd6cda255a",
+      "clear": "/media/water-reminder/water-reminder-6-original.png",
+      "dither": "/media/water-reminder/water-reminder-6-dither.webp",
+      "width": 1602,
+      "height": 1266
+    }
+  ],
+  "worldmaker": [
+    {
+      "id": "worldmaker-1",
+      "kind": "image",
+      "source": "SCR-20261019-pcgf.png",
+      "sha256": "6c40e163c1e7dccb4345f4be459e46589e3987e36fa7011dd8c5dd2fb6dafc65",
+      "clear": "/media/worldmaker/worldmaker-1-original.png",
+      "dither": "/media/worldmaker/worldmaker-1-dither.webp",
+      "width": 2938,
+      "height": 1924
+    },
+    {
+      "id": "worldmaker-2",
+      "kind": "image",
+      "source": "SCR-20261019-pdbk.png",
+      "sha256": "dec3579049c6eb3501e8ec0b4cd3f50b12137cefc4adf7e8476416548488d284",
+      "clear": "/media/worldmaker/worldmaker-2-original.png",
+      "dither": "/media/worldmaker/worldmaker-2-dither.webp",
+      "width": 2938,
+      "height": 1924
+    },
+    {
+      "id": "worldmaker-3",
+      "kind": "image",
+      "source": "SCR-20261019-pdro.png",
+      "sha256": "8625cd0e66134dcb8a4e8ac04a73fcb882db2fbbbbc52a35b3814542ccff8a4d",
+      "clear": "/media/worldmaker/worldmaker-3-original.png",
+      "dither": "/media/worldmaker/worldmaker-3-dither.webp",
+      "width": 1734,
+      "height": 1184
+    },
+    {
+      "id": "worldmaker-4",
+      "kind": "image",
+      "source": "SCR-20261019-pedu.png",
+      "sha256": "4a3ecec8f02c1b443a7ba4cabd09e1808acdf072b7243125de186a1b11dfdc75",
+      "clear": "/media/worldmaker/worldmaker-4-original.png",
+      "dither": "/media/worldmaker/worldmaker-4-dither.webp",
+      "width": 2940,
+      "height": 1922
+    }
+  ],
+  "moce-film": [
+    {
+      "id": "moce-film-1",
+      "kind": "video",
+      "source": "moce-intro-edit_2026-07-21_14-36-32.mp4",
+      "sha256": "1cb39498e86301f55db7b6574b66f39a93fbc3821597729a95a2e4e2ad53ad6b",
+      "dither": "/media/moce-film/film-dither.mp4",
+      "poster": "/media/moce-film/poster.webp",
+      "width": 1920,
+      "height": 1080
+    }
+  ],
+  "teleprompter": [
+    {
+      "id": "teleprompter-1",
+      "kind": "image",
+      "source": "SCR-20261019-pblv.png",
+      "sha256": "4c4f7e2723a1544827949e507f9884c06089bb2fd7cda9aea1c54023ffe5b7aa",
+      "clear": "/media/teleprompter/teleprompter-1-original.png",
+      "dither": "/media/teleprompter/teleprompter-1-dither.webp",
+      "width": 2938,
+      "height": 1922
+    },
+    {
+      "id": "teleprompter-2",
+      "kind": "image",
+      "source": "SCR-20261019-pbup.png",
+      "sha256": "e42551ea1d775496998e7af0adb4161bddae9e28b86183a0cf17d90da66ee6f8",
+      "clear": "/media/teleprompter/teleprompter-2-original.png",
+      "dither": "/media/teleprompter/teleprompter-2-dither.webp",
+      "width": 2938,
+      "height": 1924
+    }
+  ],
+  "huazhi": [
+    {
+      "id": "huazhi-1",
+      "kind": "image",
+      "source": "650213cb3ff1ee4e37d6e5336cba6564.png",
+      "sha256": "ec780c28ac3a3b4bc71268cfab9ab6177d3703fa105d01322de5a6db070b09c0",
+      "clear": "/media/huazhi/huazhi-1-original.png",
+      "dither": "/media/huazhi/huazhi-1-dither.webp",
+      "width": 2940,
+      "height": 1656
+    },
+    {
+      "id": "huazhi-2",
+      "kind": "image",
+      "source": "SCR-20261019-uhld.jpeg",
+      "sha256": "a1c0c51d2ccb7aa6aab7e926a5f196aac922c0f9fb9823dfe3aac4f735735ceb",
+      "clear": "/media/huazhi/huazhi-2-original.jpeg",
+      "dither": "/media/huazhi/huazhi-2-dither.webp",
+      "width": 2940,
+      "height": 1660
+    },
+    {
+      "id": "huazhi-3",
+      "kind": "image",
+      "source": "SCR-20261019-uhsp.jpeg",
+      "sha256": "09b3cb22023a151419bd038622728caf6ac039f63e1e7c61ec8df6e3eb31365d",
+      "clear": "/media/huazhi/huazhi-3-original.jpeg",
+      "dither": "/media/huazhi/huazhi-3-dither.webp",
+      "width": 2940,
+      "height": 1656
+    }
+  ],
+  "lanbridge": [
+    {
+      "id": "lanbridge-1",
+      "kind": "image",
+      "source": "SCR-20261019-ugtg.png",
+      "sha256": "35dd8f78c5614bfcdbba9b287afeaa3ab22f2290ed88100701221e1b51587537",
+      "clear": "/media/lanbridge/lanbridge-1-original.png",
+      "dither": "/media/lanbridge/lanbridge-1-dither.webp",
+      "width": 1286,
+      "height": 1626
+    }
+  ]
+}

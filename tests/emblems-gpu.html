@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>作品徽记 · 动画检查</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 22px;
+        color: #292c29;
+        background: #ead3a0;
+        font: 14px serif;
+      }
+      main {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+        min-width: 0;
+        text-align: center;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 1.05;
+      }
+      figcaption {
+        margin-top: 6px;
+      }
+      output {
+        display: block;
+        text-align: center;
+        padding: 22px 0 0;
+      }
+      @media (max-width: 800px) {
+        main {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="models"></main>
+    <output id="status">正在加载模型</output>
+    <script type="module" src="./emblems-gpu.ts"></script>
+  </body>
+</html>
