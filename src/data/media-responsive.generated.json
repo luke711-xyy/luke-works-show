@@ -1,0 +1,117 @@
+{
+  "mosic-1": {
+    "src": "/media-mobile/mosic-1-clear-720.0f2dbbab41fd.webp",
+    "width": 720,
+    "height": 471
+  },
+  "mosic-2": {
+    "src": "/media-mobile/mosic-2-clear-720.e06ab4f63db2.webp",
+    "width": 720,
+    "height": 469
+  },
+  "mosic-3": {
+    "src": "/media-mobile/mosic-3-clear-720.9381a15234c2.webp",
+    "width": 720,
+    "height": 471
+  },
+  "mosic-4": {
+    "src": "/media-mobile/mosic-4-clear-720.b1366859c0c6.webp",
+    "width": 720,
+    "height": 471
+  },
+  "meet-countdown-1": {
+    "src": "/media-mobile/meet-countdown-1-clear-720.4af2ecc4b914.webp",
+    "width": 600,
+    "height": 1248
+  },
+  "meet-countdown-2": {
+    "src": "/media-mobile/meet-countdown-2-clear-720.6a6e8ad74187.webp",
+    "width": 720,
+    "height": 469
+  },
+  "meet-countdown-3": {
+    "src": "/media-mobile/meet-countdown-3-clear-720.335102a5f5ac.webp",
+    "width": 552,
+    "height": 726
+  },
+  "water-reminder-1": {
+    "src": "/media-mobile/water-reminder-1-clear-720.5c2b64e52c69.webp",
+    "width": 720,
+    "height": 570
+  },
+  "water-reminder-2": {
+    "src": "/media-mobile/water-reminder-2-clear-720.4152893a8eae.webp",
+    "width": 720,
+    "height": 572
+  },
+  "water-reminder-3": {
+    "src": "/media-mobile/water-reminder-3-clear-720.e55ce1c3697d.webp",
+    "width": 720,
+    "height": 567
+  },
+  "water-reminder-4": {
+    "src": "/media-mobile/water-reminder-4-clear-720.b41c286f1853.webp",
+    "width": 720,
+    "height": 540
+  },
+  "water-reminder-5": {
+    "src": "/media-mobile/water-reminder-5-clear-720.5f5efa2debd2.webp",
+    "width": 720,
+    "height": 568
+  },
+  "water-reminder-6": {
+    "src": "/media-mobile/water-reminder-6-clear-720.c7de31d71215.webp",
+    "width": 720,
+    "height": 569
+  },
+  "worldmaker-1": {
+    "src": "/media-mobile/worldmaker-1-clear-720.ad446e14aad4.webp",
+    "width": 720,
+    "height": 472
+  },
+  "worldmaker-2": {
+    "src": "/media-mobile/worldmaker-2-clear-720.5f3698e2054a.webp",
+    "width": 720,
+    "height": 472
+  },
+  "worldmaker-3": {
+    "src": "/media-mobile/worldmaker-3-clear-720.8e1f437c2ec3.webp",
+    "width": 720,
+    "height": 492
+  },
+  "worldmaker-4": {
+    "src": "/media-mobile/worldmaker-4-clear-720.2a114cd9fd6a.webp",
+    "width": 720,
+    "height": 471
+  },
+  "teleprompter-1": {
+    "src": "/media-mobile/teleprompter-1-clear-720.edf7c8a8a58b.webp",
+    "width": 720,
+    "height": 471
+  },
+  "teleprompter-2": {
+    "src": "/media-mobile/teleprompter-2-clear-720.2c6356909202.webp",
+    "width": 720,
+    "height": 472
+  },
+  "huazhi-1": {
+    "src": "/media-mobile/huazhi-1-clear-720.d3d41acb9b7c.webp",
+    "width": 720,
+    "height": 406
+  },
+  "huazhi-2": {
+    "src": "/media-mobile/huazhi-2-clear-720.150765fc1c12.webp",
+    "width": 720,
+    "height": 407
+  },
+  "huazhi-3": {
+    "src": "/media-mobile/huazhi-3-clear-720.f38d26c244ee.webp",
+    "width": 720,
+    "height": 406
+  },
+  "lanbridge-1": {
+    "src": "/media-mobile/lanbridge-1-clear-720.f06369998607.webp",
+    "width": 720,
+    "height": 910
+  }
+}

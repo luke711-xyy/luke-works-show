@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { projects } from "../data/projects";
 import { createEmblem } from "./emblems";
 import { CHIME_BEAT, CHIME_CONTACT } from "./musical-emblem";
+import { clepsydra } from "./clepsydra-emblem";
 
 function dispose(group: THREE.Group) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -247,6 +248,46 @@ describe("project emblem motion", () => {
     ])
       expect(emblem.group.getObjectByName(name)).toBeDefined();
     dispose(emblem.group);
+  });
+
+  it("keeps each water-clock platform above its support throughout hover scaling", () => {
+    const group = new THREE.Group();
+    const animate = clepsydra(group);
+    animate(9);
+    const ray = new THREE.Raycaster();
+    // Probe the exposed board and the front upright's top, clear of the pots.
+    for (let step = 0; step <= 32; step++) {
+      group.scale.setScalar(1 + (0.022 * step) / 32);
+      group.updateMatrixWorld(true);
+      for (let i = 0; i < 3; i++) {
+        const x = -42 + i * 28,
+          top = 94 - i * 30;
+        for (const [dx, z] of [
+          [10, 8],
+          [-13.6, 10.8],
+        ]) {
+          ray.set(
+            new THREE.Vector3(x + dx, top + 0.5, z).applyMatrix4(
+              group.matrixWorld,
+            ),
+            new THREE.Vector3(0, -1, 0),
+          );
+          const hits = ray.intersectObjects(group.children, false);
+          expect(hits.length).toBeGreaterThan(1);
+          const surface = group.worldToLocal(hits[0].point.clone()).y;
+          expect(surface).toBeCloseTo(top, 3);
+          expect(
+            hits.filter(
+              (hit) => Math.abs(hit.distance - hits[0].distance) < 0.03,
+            ).length,
+            `step ${i}, hover ${step}: competing top surfaces`,
+          ).toBe(1);
+          const support = group.worldToLocal(hits[1].point.clone()).y;
+          expect(surface - support).toBeGreaterThan(1.5);
+        }
+      }
+    }
+    dispose(group);
   });
 
   it("raises a floating time arrow with the receiving water in a stationary four-vessel clepsydra", () => {

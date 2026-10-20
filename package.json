@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "assets": "node scripts/prepare-media.mjs",
+    "assets:responsive": "node scripts/prepare-responsive-media.mjs",
     "dev": "vite --host 127.0.0.1 --port 5187 --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

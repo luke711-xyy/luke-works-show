@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { preloadImage } from "./media-preload";
+import { preloadImage, warmImages } from "./media-preload";
 
 class FakeImage {
   static created: FakeImage[] = [];
@@ -54,5 +54,40 @@ describe("image preloading", () => {
 
     FakeImage.created[1].load();
     await retry;
+  });
+
+  it("promotes a speculative image when it becomes the selected cover", async () => {
+    vi.stubGlobal("Image", FakeImage);
+    const speculative = preloadImage("/media/project/promote.webp", "low");
+    const selected = preloadImage("/media/project/promote.webp", "high");
+    expect(FakeImage.created).toHaveLength(1);
+    expect(FakeImage.created[0].fetchPriority).toBe("high");
+    FakeImage.created[0].load();
+    await Promise.all([speculative, selected]);
+  });
+
+  it("warms one image at a time and stops queued work after leaving a project", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("Image", FakeImage);
+    const cancel = warmImages([
+      "/warm/one.webp",
+      "/warm/two.webp",
+      "/warm/three.webp",
+    ]);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(FakeImage.created.map((image) => image.src)).toEqual([
+      "/warm/one.webp",
+    ]);
+    FakeImage.created[0].load();
+    await vi.advanceTimersByTimeAsync(250);
+    expect(FakeImage.created.map((image) => image.src)).toEqual([
+      "/warm/one.webp",
+      "/warm/two.webp",
+    ]);
+    cancel();
+    FakeImage.created[1].load();
+    await vi.runAllTimersAsync();
+    expect(FakeImage.created).toHaveLength(2);
+    vi.useRealTimers();
   });
 });

@@ -1,11 +1,60 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { createFlower, createLeaf } from "./geometry";
+import { leafEdge } from "./motion";
 
 const luminance = (c: THREE.Color) =>
   c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
 
 describe("botanical surfaces", () => {
+  it.each(["full", "compact"] as const)(
+    "does not add a perimeter stroke to %s leaves, while retaining interior veins",
+    (detail) => {
+      const plain = createLeaf(180, 93, "#93948f", false, detail);
+      expect(
+        plain.group.children.every(
+          (part) =>
+            part instanceof THREE.Mesh &&
+            part.geometry === plain.surface.geometry,
+        ),
+      ).toBe(true);
+
+      const veined = createLeaf(180, 93, "#93948f", true, detail);
+      const veins = veined.group.children.filter(
+        (part) =>
+          part instanceof THREE.Mesh &&
+          part.geometry !== veined.surface.geometry,
+      ) as THREE.Mesh[];
+      expect(veins.length).toBeGreaterThan(0);
+      for (const vein of veins) {
+        const vertices = vein.geometry.getAttribute("position");
+        let outermost = 0;
+        for (let i = 0; i < vertices.count; i++) {
+          const x = vertices.getX(i),
+            z = vertices.getZ(i);
+          outermost = Math.max(
+            outermost,
+            Math.hypot(x, z) / (180 * leafEdge(Math.atan2(z, x), 93)),
+          );
+        }
+        expect(outermost).toBeLessThan(0.98);
+      }
+    },
+  );
+  it("halves phone leaf triangles without changing its outline or pale folds", () => {
+    const full = createLeaf(120, 12, "#333535", false);
+    const phone = createLeaf(120, 12, "#333535", false, "compact");
+    const triangles = phone.surface.geometry.index!.count / 3;
+    expect(triangles).toBeLessThan(4000);
+    expect(phone.contour.map((point) => point.toArray())).toEqual(
+      full.contour.map((point) => point.toArray()),
+    );
+    const colors = phone.surface.geometry.getAttribute("color");
+    const values = Array.from({ length: colors.count }, (_, i) =>
+      luminance(new THREE.Color().fromBufferAttribute(colors, i)),
+    );
+    expect(Math.max(...values) - Math.min(...values)).toBeGreaterThan(0.18);
+  });
   it("gives a dark leaf both ink pools and broad pale regions", () => {
     const leaf = createLeaf(120, 12, "#333535", false);
     const colors = leaf.surface.geometry.getAttribute("color");

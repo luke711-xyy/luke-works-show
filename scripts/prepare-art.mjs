@@ -42,7 +42,7 @@ const text = [
   ...new Set(
     (
       ascii +
-      "·→" +
+      "·→‘’" +
       (copy.match(/[\u3000-\u303f\uff00-\uffef\u3400-\u9fff]/g) ?? []).join("")
     ).split(""),
   ),

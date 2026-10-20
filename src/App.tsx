@@ -15,13 +15,15 @@ import {
 } from "./data/projects";
 import {
   isProjectId,
+  commitNavigation,
   navigationUrl,
   parseLocation,
+  writeHistorySafely,
   type NavigationState,
 } from "./navigation";
-import { PondScene, type SceneFrame } from "./scene/PondScene";
+import type { PondScene, SceneFrame } from "./scene/PondScene";
 import { galleryWheelOffset } from "./scroll";
-import { preloadImage } from "./media-preload";
+import { preloadImage, warmImages } from "./media-preload";
 import { isTapGesture, shouldTrackPondPointer } from "./scene/input";
 import {
   clamp,
@@ -39,9 +41,27 @@ const initial = () => {
 };
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const indexOf = (id: ProjectId) => projects.findIndex((p) => p.id === id);
+const imageSource = (item: Media) =>
+  innerWidth < 640 && item.mobile ? item.mobile.src : (item.clear ?? "");
+const saveData = () =>
+  Boolean(
+    (
+      navigator as Navigator & {
+        connection?: { saveData?: boolean; effectiveType?: string };
+      }
+    ).connection?.saveData ||
+    /(^|-)2g$/.test(
+      (navigator as Navigator & { connection?: { effectiveType?: string } })
+        .connection?.effectiveType ?? "",
+    ),
+  );
 function preloadProjectCover(id: ProjectId) {
-  const cover = mediaFor(id).find((item) => item.kind === "image");
-  if (cover) void preloadImage(cover.dither, "high");
+  const cover = mediaFor(id)[0];
+  if (cover)
+    void preloadImage(
+      cover.kind === "video" ? cover.poster! : imageSource(cover),
+      "high",
+    );
 }
 function Icon({ name }: { name: "back" | "close" | "arrow" }) {
   const paths = {
@@ -103,16 +123,21 @@ export function MediaFigure({
           onClick={() => open(item)}
           aria-label={`放大查看${project.title}：${item.caption}`}
         >
-          <img
-            src={item.dither}
-            alt={item.caption}
-            loading={position === 1 ? "eager" : "lazy"}
-            decoding="async"
-            fetchPriority={position === 1 ? "high" : "auto"}
-            width={item.width}
-            height={item.height}
-            onError={() => setFailed(true)}
-          />
+          <picture>
+            {item.mobile && (
+              <source media="(max-width: 639px)" srcSet={item.mobile.src} />
+            )}
+            <img
+              src={item.clear}
+              alt={item.caption}
+              loading={position === 1 ? "eager" : "lazy"}
+              decoding="async"
+              fetchPriority={position === 1 ? "high" : "auto"}
+              width={item.width}
+              height={item.height}
+              onError={() => setFailed(true)}
+            />
+          </picture>
         </button>
       )}
       <figcaption>
@@ -140,8 +165,7 @@ function ImageViewer({
   close: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [clear, setClear] = useState(false),
-    [zoom, setZoom] = useState(false);
+  const [zoom, setZoom] = useState(false);
   useEffect(() => {
     ref.current?.showModal();
     return () => ref.current?.close();
@@ -160,9 +184,6 @@ function ImageViewer({
       <div className="viewer-toolbar">
         <span>{title}</span>
         <div className="viewer-actions">
-          <button aria-pressed={clear} onClick={() => setClear((v) => !v)}>
-            {clear ? "返回抖色" : "清晰原图"}
-          </button>
           <button aria-pressed={zoom} onClick={() => setZoom((v) => !v)}>
             {zoom ? "适应窗口" : "原尺寸"}
           </button>
@@ -182,12 +203,17 @@ function ImageViewer({
           if (e.target === e.currentTarget) close();
         }}
       >
-        <img
-          src={clear ? item.clear : item.dither}
-          alt={`${item.caption}（${clear ? "清晰原图" : "抖色版本"}）`}
-          width={item.width}
-          height={item.height}
-        />
+        <picture>
+          {!zoom && item.mobile && (
+            <source media="(max-width: 639px)" srcSet={item.mobile.src} />
+          )}
+          <img
+            src={item.clear}
+            alt={item.caption}
+            width={item.width}
+            height={item.height}
+          />
+        </picture>
       </div>
     </dialog>
   );
@@ -205,39 +231,13 @@ function ProjectDetail({
   const [viewer, setViewer] = useState<Media | null>(null);
   const media = mediaFor(project.id);
   useEffect(() => {
-    const remainingImages = mediaFor(project.id)
-      .filter((item) => item.kind === "image")
-      .slice(1);
-    if (!remainingImages.length) return;
-
-    let cancelled = false;
-    const warmRemainingImages = () => {
-      if (cancelled) return;
-      for (const item of remainingImages) void preloadImage(item.dither, "low");
-    };
-    const idleWindow = window as typeof window & {
-      requestIdleCallback?: (
-        callback: () => void,
-        options?: { timeout: number },
-      ) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-
-    if (idleWindow.requestIdleCallback) {
-      const handle = idleWindow.requestIdleCallback(warmRemainingImages, {
-        timeout: 500,
-      });
-      return () => {
-        cancelled = true;
-        idleWindow.cancelIdleCallback?.(handle);
-      };
-    }
-
-    const handle = window.setTimeout(warmRemainingImages, 100);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(handle);
-    };
+    // The first image is already warm from the leaf. Only look one image
+    // ahead; native lazy loading handles the rest as the visitor scrolls.
+    if (saveData()) return;
+    const next = mediaFor(project.id).filter(
+      (item) => item.kind === "image",
+    )[1];
+    return next ? warmImages([imageSource(next)]) : undefined;
   }, [project.id]);
   useEffect(() => {
     const dialog = ref.current!;
@@ -248,7 +248,10 @@ function ProjectDetail({
           { clipPath: outline, opacity: 0.5 },
           { clipPath: "polygon(0% 0%,100% 0%,100% 100%,0% 100%)", opacity: 1 },
         ],
-        { duration: 650, easing: "cubic-bezier(.16,1,.3,1)" },
+        {
+          duration: innerWidth < 640 ? 260 : 450,
+          easing: "cubic-bezier(.16,1,.3,1)",
+        },
       );
     return () => dialog.close();
   }, []);
@@ -380,8 +383,10 @@ export default function App() {
   const root = useRef<HTMLDivElement>(null),
     canvas = useRef<HTMLCanvasElement>(null),
     gallery = useRef<HTMLDivElement>(null),
+    inscription = useRef<HTMLParagraphElement>(null),
     scene = useRef<PondScene | null>(null);
   const fishButtons = useRef(new Map<ProjectId, HTMLButtonElement>()),
+    projectButtons = useRef(new Map<ProjectId, HTMLButtonElement>()),
     navRef = useRef(nav),
     hoveredRef = useRef<ProjectId | null>(null),
     readyRef = useRef(false);
@@ -395,22 +400,30 @@ export default function App() {
       undefined,
     ),
     pointerStart = useRef({ x: 0, y: 0 }),
+    projectPointer = useRef<{ id: ProjectId; pointerId: number } | null>(null),
+    cancelledProjectTap = useRef(false),
     touchPondPointer = useRef(false),
     lastWidth = useRef(innerWidth);
   const callbacks = useRef({ pick: (_id: ProjectId) => {} });
   const travelling = useRef(false),
-    renderedScroll = useRef(-1);
+    renderedScroll = useRef(-1),
+    initialGallerySync = useRef(true);
   navRef.current = nav;
   const navigate = useCallback((next: NavigationState, replace = false) => {
-    history[replace ? "replaceState" : "pushState"](
-      { folio: true, scroll: scrollMemory.current, selected: next.selected },
-      "",
-      navigationUrl(next),
+    return commitNavigation(
+      history,
+      next,
+      scrollMemory.current,
+      replace,
+      () => {
+        navRef.current = next;
+        setNav(next);
+      },
     );
-    setNav(next);
   }, []);
   const enter = useCallback(
     (id: ProjectId) => {
+      preloadProjectCover(id);
       const x = indexOf(id) * galleryStride(innerWidth);
       scrollMemory.current = x;
       navigate({ page: "works", selected: id, detail: null });
@@ -424,13 +437,68 @@ export default function App() {
       root.current?.style.setProperty("--camera-x", `${frame.cameraX}`);
       if (root.current)
         root.current.dataset.travelling = String(frame.travelling);
+      if (inscription.current) {
+        const pose = frame.inscription;
+        // Like the fish labels, compensate for the home panel's own pan.
+        inscription.current.style.left = `${pose.x + frame.progress * innerWidth}px`;
+        inscription.current.style.top = `${pose.y}px`;
+        inscription.current.style.setProperty(
+          "--inscription-size",
+          `${clamp(pose.radius * 0.15, 14, 32)}px`,
+        );
+        inscription.current.style.setProperty(
+          "--inscription-angle",
+          `${pose.angle}rad`,
+        );
+        inscription.current.style.visibility = pose.visible
+          ? "visible"
+          : "hidden";
+      }
+      const syncScroll =
+        initialGallerySync.current ||
+        travelling.current ||
+        frame.travelling ||
+        frame.progress < 1;
       travelling.current = frame.travelling;
       renderedScroll.current = frame.scroll;
       if (
         gallery.current &&
+        syncScroll &&
         Math.abs(gallery.current.scrollLeft - frame.scroll) > 0.5
       )
         gallery.current.scrollLeft = frame.scroll;
+      initialGallerySync.current = false;
+      // Sticky viewport children do not take the compositor's independent
+      // native-scroll transform. Leaf, label and hit shape share this GPU frame.
+      const panelX = innerWidth * (1 - frame.progress);
+      const visibleProjects = new Set(
+        frame.projects.map((project) => project.id),
+      );
+      for (const [id, button] of projectButtons.current) {
+        const visibility = visibleProjects.has(id) ? "visible" : "hidden";
+        if (button.style.visibility !== visibility)
+          button.style.visibility = visibility;
+      }
+      for (const project of frame.projects) {
+        const button = projectButtons.current.get(project.id);
+        if (!button) continue;
+        const b = project.bounds;
+        button.dataset.sceneBound = "true";
+        const values = {
+          "--leaf-x": `${b.x - panelX}px`,
+          "--leaf-y": `${b.y}px`,
+          "--leaf-w": `${b.width}px`,
+          "--leaf-h": `${b.height}px`,
+          "--leaf-clip": `polygon(${project.polygon.map((p) => `${(((p.x - b.x) / b.width) * 100).toFixed(3)}% ${(((p.y - b.y) / b.height) * 100).toFixed(3)}%`).join(",")})`,
+          "--title-x": `${project.title.x - b.x}px`,
+          "--title-y": `${project.title.y - b.y}px`,
+          "--title-width": `${project.radius * 1.6}px`,
+          "--title-scale": String(project.scale),
+        };
+        for (const [key, value] of Object.entries(values))
+          if (button.style.getPropertyValue(key) !== value)
+            button.style.setProperty(key, value);
+      }
       if (navRef.current.page === "works") {
         setCurrent(
           clamp(Math.round(frame.scroll / galleryStride(innerWidth)), 0, 7),
@@ -458,23 +526,31 @@ export default function App() {
         }
       }
     };
-    try {
-      const instance = new PondScene(canvas.current!, {
-        frame: onFrame,
-        pick: (id) => callbacks.current.pick(id),
-        error: () => {
+    let disposed = false;
+    // The lightweight DOM and navigation paint before downloading/constructing
+    // WebGL. Deep-linked case studies remain usable while the pond warms up.
+    void import("./scene/PondScene")
+      .then(({ PondScene }) => {
+        if (disposed) return;
+        const instance = new PondScene(canvas.current!, {
+          frame: onFrame,
+          pick: (id) => callbacks.current.pick(id),
+          error: () => {
+            setFallback(true);
+            setReady(true);
+          },
+        });
+        scene.current = instance;
+        instance.setNavigation(navRef.current, scrollMemory.current, true);
+        if (import.meta.env.DEV)
+          (window as unknown as { __pond: PondScene }).__pond = instance;
+      })
+      .catch(() => {
+        if (!disposed) {
           setFallback(true);
           setReady(true);
-        },
+        }
       });
-      scene.current = instance;
-      instance.setNavigation(navRef.current, scrollMemory.current, true);
-      if (import.meta.env.DEV)
-        (window as unknown as { __pond: PondScene }).__pond = instance;
-    } catch {
-      setFallback(true);
-      setReady(true);
-    }
     const resize = () => {
       const w = innerWidth,
         h = innerHeight,
@@ -482,6 +558,7 @@ export default function App() {
       lastWidth.current = w;
       setSize({ w, h });
       scene.current?.resize(w, h);
+      initialGallerySync.current = true;
       requestAnimationFrame(() => {
         if (gallery.current && !scene.current) {
           gallery.current.scrollLeft = stop * galleryStride(w);
@@ -500,6 +577,7 @@ export default function App() {
     canvas.current?.addEventListener("webglcontextlost", contextLost);
     window.addEventListener("resize", resize);
     return () => {
+      disposed = true;
       window.removeEventListener("resize", resize);
       canvas.current?.removeEventListener("webglcontextlost", contextLost);
       scene.current?.dispose();
@@ -511,6 +589,8 @@ export default function App() {
     scene.current?.setNavigation(nav, scrollMemory.current);
     if (fallback && nav.page === "works" && gallery.current) {
       gallery.current.scrollLeft = scrollMemory.current;
+      for (const button of projectButtons.current.values())
+        button.style.visibility = "visible";
     }
     document.title = nav.detail
       ? `${getProject(nav.detail).title} · Luke`
@@ -522,14 +602,31 @@ export default function App() {
       );
   }, [nav, fallback]);
   useEffect(() => {
+    if (
+      !ready ||
+      nav.page !== "works" ||
+      nav.detail ||
+      travelling.current ||
+      saveData()
+    )
+      return;
+    const cover = mediaFor(projects[current].id)[0];
+    if (!cover) return;
+    return warmImages([
+      cover.kind === "video" ? cover.poster! : imageSource(cover),
+    ]);
+  }, [ready, nav.page, nav.detail, current]);
+  useEffect(() => {
     if (!history.state?.folio)
-      history.replaceState(
+      writeHistorySafely(
+        history,
         {
           folio: true,
           scroll: scrollMemory.current,
           selected: navRef.current.selected,
         },
         "",
+        true,
       );
     const pop = () => {
       const next = initial();
@@ -574,22 +671,43 @@ export default function App() {
     scrollMemory.current = x;
     scene.current?.setScroll(x, v);
     clearTimeout(velocityTimer.current);
-    velocityTimer.current = setTimeout(
-      () => scene.current?.setScroll(scrollMemory.current, 0),
-      150,
-    );
+    velocityTimer.current = setTimeout(() => {
+      scene.current?.setScroll(scrollMemory.current, 0);
+      if (navRef.current.page === "works" && !navRef.current.detail)
+        writeHistorySafely(
+          history,
+          { ...history.state, scroll: scrollMemory.current },
+          "",
+          true,
+        );
+    }, 150);
     setCurrent(clamp(Math.round(x / galleryStride(innerWidth)), 0, 7));
-    if (navRef.current.page === "works" && !navRef.current.detail)
-      history.replaceState({ ...history.state, scroll: x }, "");
   };
   const detailClick = (id: ProjectId) => {
+    if (navRef.current.detail === id) return;
     preloadProjectCover(id);
     setOutline(scene.current?.getProjectOutline(id) ?? "circle(0% at 50% 50%)");
-    navigate({ ...navRef.current, page: "works", detail: id });
-    history.replaceState({ ...history.state, detailEntry: true }, "");
+    const next: NavigationState = {
+      ...navRef.current,
+      page: "works",
+      detail: id,
+    };
+    // Persist once after a gesture, not on every scroll event. A WebKit history
+    // rate limit must not leave a paused canvas behind an unopened detail.
+    writeHistorySafely(
+      history,
+      { ...history.state, scroll: scrollMemory.current },
+      "",
+      true,
+    );
+    navigate(next);
   };
   const closeDetail = () => {
-    if (history.state?.detailEntry) history.back();
+    if (
+      history.state?.detailEntry &&
+      location.pathname === navigationUrl(navRef.current)
+    )
+      history.back();
     else navigate({ ...navRef.current, detail: null }, true);
   };
   const shiftGallery = (index: number) => {
@@ -606,6 +724,13 @@ export default function App() {
       ref={root}
       onPointerMove={(e) => {
         if (
+          projectPointer.current &&
+          !isTapGesture(pointerStart.current, { x: e.clientX, y: e.clientY })
+        ) {
+          projectPointer.current = null;
+          cancelledProjectTap.current = true;
+        }
+        if (
           navRef.current.page === "pond" &&
           shouldTrackPondPointer(e.pointerType, touchPondPointer.current)
         )
@@ -618,6 +743,24 @@ export default function App() {
       onPointerDown={(e) => {
         pointerStart.current = { x: e.clientX, y: e.clientY };
         const target = e.target as Element;
+        projectPointer.current = null;
+        cancelledProjectTap.current = false;
+        if (
+          navRef.current.page === "works" &&
+          !navRef.current.detail &&
+          !travelling.current &&
+          e.button === 0
+        ) {
+          const owner = target
+            .closest("[data-project]")
+            ?.getAttribute("data-project");
+          const id = isProjectId(owner)
+            ? owner
+            : target.closest("button,a")
+              ? null
+              : scene.current?.projectAt(e.clientX, e.clientY);
+          if (id) projectPointer.current = { id, pointerId: e.pointerId };
+        }
         touchPondPointer.current =
           e.pointerType === "touch" &&
           navRef.current.page === "pond" &&
@@ -645,8 +788,29 @@ export default function App() {
             Boolean(scene.current?.disturbLeafAt(e.clientX, e.clientY));
           if (!disturbedLeaf) scene.current?.selectAt(e.clientX, e.clientY);
         }
+        const tap = projectPointer.current;
+        projectPointer.current = null;
+        if (
+          tap &&
+          tap.pointerId === e.pointerId &&
+          isTap &&
+          navRef.current.page === "works" &&
+          !navRef.current.detail &&
+          !travelling.current
+        ) {
+          const owner = target
+            .closest("[data-project]")
+            ?.getAttribute("data-project");
+          const hit = isProjectId(owner)
+            ? owner
+            : scene.current?.projectAt(e.clientX, e.clientY);
+          if ((!interactive || isProjectId(owner)) && (!hit || hit === tap.id))
+            detailClick(tap.id);
+        }
       }}
       onPointerCancel={(e) => {
+        projectPointer.current = null;
+        cancelledProjectTap.current = true;
         if (e.pointerType === "touch") {
           const wasPondTouch = touchPondPointer.current;
           touchPondPointer.current = false;
@@ -661,6 +825,9 @@ export default function App() {
         aria-hidden={nav.page !== "pond"}
         inert={nav.page !== "pond"}
       >
+        <p className="pond-inscription" ref={inscription}>
+          徐弋洋·作品集
+        </p>
         <div className="fish-entries" aria-label="选择一条锦鲤，进入对应作品">
           {projects.map((p, i) => (
             <button
@@ -708,7 +875,7 @@ export default function App() {
             <Icon name="back" />
             <span>回到荷塘</span>
           </button>
-          <span className="works-title">一池作品</span>
+          <span className="works-title">Luke’s Collection</span>
           <a
             className="github-link"
             href="https://github.com/luke711-xyy"
@@ -737,47 +904,63 @@ export default function App() {
             className="gallery-track"
             style={{ width: `${size.w + galleryStride(size.w) * 7}px` }}
           >
-            {projects.map((p, i) => {
-              const c = galleryCenter(i, size.w, size.h),
-                r = radius * (i % 3 === 1 ? 0.92 : 1);
-              return (
-                <button
-                  className={`project-leaf ${[1, 3, 4, 5, 7].includes(i) ? "is-light" : ""}`}
-                  key={p.id}
-                  style={{
-                    left: c.x,
-                    top: c.y,
-                    width: r * 2,
-                    height: r * 1.58,
-                    clipPath: leafHitShape(88 + i),
-                  }}
-                  onClick={() => detailClick(p.id)}
-                  onPointerEnter={() => {
-                    scene.current?.setHoveredProject(p.id);
-                    preloadProjectCover(p.id);
-                  }}
-                  onPointerLeave={() => scene.current?.setHoveredProject(null)}
-                  onFocus={(e) => {
-                    scene.current?.setHoveredProject(p.id);
-                    preloadProjectCover(p.id);
-                    if (e.currentTarget.matches(":focus-visible"))
-                      shiftGallery(i);
-                  }}
-                  onBlur={() => scene.current?.setHoveredProject(null)}
-                  aria-label={`展开${p.title}：${p.chinese}`}
-                >
-                  {fallback && (
-                    <span className="fallback-emblem">
-                      {p.title.slice(0, 1)}
+            <div className="gallery-viewport">
+              {projects.map((p, i) => {
+                const c = galleryCenter(i, size.w, size.h),
+                  r = radius * (i % 3 === 1 ? 0.92 : 1);
+                return (
+                  <button
+                    className={`project-leaf ${[1, 3, 4, 5, 7].includes(i) ? "is-light" : ""}`}
+                    key={p.id}
+                    ref={(el) => {
+                      if (el) projectButtons.current.set(p.id, el);
+                      else projectButtons.current.delete(p.id);
+                    }}
+                    data-project={p.id}
+                    style={
+                      {
+                        "--base-x": `${c.x}px`,
+                        "--base-y": `${c.y}px`,
+                        "--base-w": `${r * 2}px`,
+                        "--base-h": `${r * 1.58}px`,
+                        "--base-clip": leafHitShape(88 + i),
+                      } as CSSProperties
+                    }
+                    onClick={(e) => {
+                      if (e.detail === 0 || !cancelledProjectTap.current)
+                        detailClick(p.id);
+                    }}
+                    onPointerDown={() => preloadProjectCover(p.id)}
+                    onPointerEnter={(e) => {
+                      if (e.pointerType !== "touch")
+                        scene.current?.setHoveredProject(p.id);
+                      preloadProjectCover(p.id);
+                    }}
+                    onPointerLeave={() =>
+                      scene.current?.setHoveredProject(null)
+                    }
+                    onFocus={(e) => {
+                      scene.current?.setHoveredProject(p.id);
+                      preloadProjectCover(p.id);
+                      if (e.currentTarget.matches(":focus-visible"))
+                        shiftGallery(i);
+                    }}
+                    onBlur={() => scene.current?.setHoveredProject(null)}
+                    aria-label={`展开${p.title}：${p.chinese}`}
+                  >
+                    {fallback && (
+                      <span className="fallback-emblem">
+                        {p.title.slice(0, 1)}
+                      </span>
+                    )}
+                    <span className="project-leaf-title">
+                      {p.title}
+                      <span>{p.chinese}</span>
                     </span>
-                  )}
-                  <span className="project-leaf-title">
-                    {p.title}
-                    <span>{p.chinese}</span>
-                  </span>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
         <footer className="works-footer">

@@ -237,10 +237,31 @@ export function clepsydra(group: THREE.Group) {
   block(group, 0, 4.4, -19, 124, 1.2, 2, "#c2a16b");
   for (let i = 0; i < 3; i++) {
     const x = -42 + i * 28,
-      top = 94 - i * 30;
-    block(group, x, (top + 4) / 2, -4, 28, top - 4, 29, "#aa8759");
+      top = 94 - i * 30,
+      supportTop = top - 1.6;
+    // End both uprights at the board's underside, not its exposed top face.
+    // Coplanar top faces otherwise fight in the compressed pond depth band.
+    block(
+      group,
+      x,
+      (supportTop + 4) / 2,
+      -4,
+      28,
+      supportTop - 4,
+      29,
+      "#aa8759",
+    );
     block(group, x, top - 0.8, -4, 29, 1.6, 31, "#77573b");
-    block(group, x - 13.6, (top + 4) / 2, 10.8, 1, top - 4, 1.2, "#74513a");
+    block(
+      group,
+      x - 13.6,
+      (supportTop + 4) / 2,
+      10.8,
+      1,
+      supportTop - 4,
+      1.2,
+      "#74513a",
+    );
   }
   const vessels = Array.from({ length: 4 }, (_, i) => vessel(group, i));
   const receiver = vessels[3].pot;

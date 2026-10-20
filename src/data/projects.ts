@@ -1,4 +1,5 @@
 import manifest from "./media.generated.json";
+import mobileManifest from "./media-responsive.generated.json";
 import { mediaCaptions } from "./media-captions";
 
 export type ProjectId =
@@ -17,6 +18,7 @@ export type Media = {
   clear?: string;
   dither: string;
   poster?: string;
+  mobile?: { src: string; width: number; height: number };
   width: number;
   height: number;
   caption: string;
@@ -274,5 +276,11 @@ export const mediaFor = (id: ProjectId): Media[] => {
   const cover = getProject(id).cover;
   return items
     .sort((a, b) => (a.source === cover ? -1 : b.source === cover ? 1 : 0))
-    .map((item) => ({ ...item, caption: mediaCaptions[item.id] }));
+    .map((item) => ({
+      ...item,
+      mobile: (mobileManifest as Record<string, NonNullable<Media["mobile"]>>)[
+        item.id
+      ],
+      caption: mediaCaptions[item.id],
+    }));
 };

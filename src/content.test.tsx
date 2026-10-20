@@ -55,6 +55,53 @@ describe("per-image figure information", () => {
     );
     expect(html).toContain("完整产品动态演示。");
     expect(html).toContain("<video");
+    expect(html).toContain('poster="/media/moce-film/poster-clear.png"');
     expect(html).not.toContain("图片 1");
+  });
+
+  it("serves unfiltered original-color images with a small phone variant", () => {
+    const project = getProject("mosic");
+    const item = {
+      ...mediaFor(project.id)[0],
+      mobile: {
+        src: "/media-mobile/cover-clear-720.hash.webp",
+        width: 720,
+        height: 480,
+      },
+    };
+    const html = renderToStaticMarkup(
+      createElement(MediaFigure, {
+        item,
+        project,
+        position: 1,
+        total: 4,
+        open: () => {},
+      }),
+    );
+    expect(html).toContain('<source media="(max-width: 639px)"');
+    expect(html).toContain('srcSet="/media-mobile/cover-clear-720.hash.webp"');
+    expect(html).toContain(`src="${item.clear}"`);
+    expect(html).not.toContain(item.dither);
+  });
+
+  it.each(
+    projects.filter((project) =>
+      mediaFor(project.id).some((item) => item.kind === "image"),
+    ),
+  )("never renders a dithered screenshot in $title details", (project) => {
+    const images = mediaFor(project.id).filter((item) => item.kind === "image");
+    for (const [index, item] of images.entries()) {
+      const html = renderToStaticMarkup(
+        createElement(MediaFigure, {
+          item,
+          project,
+          position: index + 1,
+          total: images.length,
+          open: () => {},
+        }),
+      );
+      expect(html).toContain(`src="${item.clear}"`);
+      expect(html).not.toContain(item.dither);
+    }
   });
 });

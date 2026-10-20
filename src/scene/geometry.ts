@@ -54,14 +54,15 @@ export function createLeaf(
   seed: number,
   color: string,
   veins = true,
+  detail: "full" | "compact" = "full",
 ) {
   const group = new THREE.Group(),
     rng = random(seed),
     positions: number[] = [],
     colors: number[] = [],
     indices: number[] = [];
-  const rings = 26,
-    segments = 144,
+  const rings = detail === "compact" ? 18 : 26,
+    segments = detail === "compact" ? 96 : 144,
     base = new THREE.Color(color);
   const height = (a: number, t: number) =>
     radius *
@@ -202,26 +203,12 @@ export function createLeaf(
         }
     }
   }
-  const rim = Array.from({ length: 89 }, (_, i) => {
-    const a = (i / 88) * Math.PI * 2,
-      r = radius * leafEdge(a, seed);
-    return new THREE.Vector3(
-      Math.cos(a) * r,
-      height(a, 1) + 0.3,
-      Math.sin(a) * r,
-    );
-  });
-  group.add(
-    line(
-      rim,
-      new THREE.Color(color).lerp(new THREE.Color("#aeb29b"), 0.12).getStyle(),
-      radius * 0.0018,
-    ),
-  );
   const details = group.children.filter(
     (o) => o !== surface && o !== shadow,
   ) as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>[];
-  const merged = mergeGeometries(details.map((o) => o.geometry));
+  const merged = details.length
+    ? mergeGeometries(details.map((o) => o.geometry))
+    : null;
   if (merged) {
     group.remove(...details);
     details.forEach((o) => {
@@ -470,6 +457,16 @@ export function createKoi(length: number, seed: number) {
   );
   body.name = "koi-body";
   group.add(body);
+  // The head stays rigid internally, but is no longer pinned in space. Keep
+  // all facial details on the same pivot as the front of the body surface.
+  const headPivot = length * 0.18;
+  const head = new THREE.Group(),
+    headFeatures = new THREE.Group();
+  head.name = "koi-head";
+  head.position.x = headPivot;
+  headFeatures.position.x = -headPivot;
+  head.add(headFeatures);
+  group.add(head);
   const finMat = matte("#e3dbc5", {
     side: THREE.DoubleSide,
     transparent: true,
@@ -482,13 +479,18 @@ export function createKoi(length: number, seed: number) {
     object.rotation.x = Math.PI / 2;
     return object;
   };
-  const rays = (curves: THREE.Vector3[][], color: string, opacity = 0.38) => {
+  const rays = (
+    curves: THREE.Vector3[][],
+    color: string,
+    opacity = 0.38,
+    ink?: "edge" | "ray",
+  ) => {
     const parts = curves.map(
       (points) =>
         new THREE.TubeGeometry(
           new THREE.CatmullRomCurve3(points),
           16,
-          length * 0.0014,
+          length * (ink === "edge" ? 0.0022 : 0.0014),
           3,
           false,
         ),
@@ -497,8 +499,33 @@ export function createKoi(length: number, seed: number) {
     parts.forEach((part) => part.dispose());
     return new THREE.Mesh(
       geometry,
-      matte(color, { transparent: true, opacity, depthWrite: false }),
+      ink
+        ? new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity,
+            depthWrite: false,
+          })
+        : matte(color, { transparent: true, opacity, depthWrite: false }),
     );
+  };
+  const finEdge = (shape: THREE.Shape, name: string, vertical = false) => {
+    const edge = rays(
+      [
+        shape
+          .getSpacedPoints(80)
+          .map((p) =>
+            vertical
+              ? new THREE.Vector3(p.x, p.y, 0.18)
+              : new THREE.Vector3(p.x, 0.18, p.y),
+          ),
+      ],
+      "#726b5a",
+      0.48,
+      "edge",
+    );
+    edge.name = `${name}-edge`;
+    return edge;
   };
   const pectorals: THREE.Group[] = [];
   for (const side of [-1, 1]) {
@@ -525,25 +552,28 @@ export function createKoi(length: number, seed: number) {
     shape.closePath();
     const fan = new THREE.Group();
     fan.position.y = -width * 0.15;
-    fan.add(fin(shape, side < 0 ? "pectoral-left" : "pectoral-right"));
-    fan.add(
-      rays(
-        Array.from({ length: 7 }, (_, k) => [
-          new THREE.Vector3(length * 0.12, 0.25, side * width * 0.65),
-          new THREE.Vector3(
-            length * (0.035 - k * 0.012),
-            0.3,
-            side * width * (1.18 + k * 0.055),
-          ),
-          new THREE.Vector3(
-            length * (0.015 - k * 0.027),
-            0.25,
-            side * width * (1.96 - k * 0.077),
-          ),
-        ]),
-        "#a59575",
-      ),
+    const name = side < 0 ? "pectoral-left" : "pectoral-right";
+    fan.add(fin(shape, name), finEdge(shape, name));
+    const finRays = rays(
+      Array.from({ length: 7 }, (_, k) => [
+        new THREE.Vector3(length * 0.12, 0.25, side * width * 0.65),
+        new THREE.Vector3(
+          length * (0.035 - k * 0.012),
+          0.3,
+          side * width * (1.18 + k * 0.055),
+        ),
+        new THREE.Vector3(
+          length * (0.015 - k * 0.027),
+          0.25,
+          side * width * (1.96 - k * 0.077),
+        ),
+      ]),
+      "#827862",
+      0.32,
+      "ray",
     );
+    finRays.name = `${name}-rays`;
+    fan.add(finRays);
     group.add(fan);
     pectorals.push(fan);
 
@@ -576,8 +606,8 @@ export function createKoi(length: number, seed: number) {
     const glint = ball(length * 0.0065, "#fff8e6");
     glint.position.set(-length * 0.005, length * 0.006, length * 0.027);
     eye.add(glint);
-    group.add(eye);
-    group.add(
+    headFeatures.add(eye);
+    headFeatures.add(
       rays(
         [
           [
@@ -626,26 +656,30 @@ export function createKoi(length: number, seed: number) {
   );
   tailShape.quadraticCurveTo(-length * 0.1, width * 0.82, 0, 0);
   tailShape.closePath();
-  tail.add(fin(tailShape, "tail-membrane"));
-  group.add(tail);
   tail.add(
-    rays(
-      Array.from({ length: 11 }, (_, k) => {
-        const f = (k - 5) / 5;
-        return [
-          new THREE.Vector3(0, 0.25, 0),
-          new THREE.Vector3(-length * 0.12, 0.3, f * width * 0.65),
-          new THREE.Vector3(
-            -length * (0.19 + Math.abs(f) * 0.07),
-            0.25,
-            f * width * 1.38,
-          ),
-        ];
-      }),
-      "#ac936a",
-      0.38,
-    ),
+    fin(tailShape, "tail-membrane"),
+    finEdge(tailShape, "tail-membrane"),
   );
+  group.add(tail);
+  const tailRays = rays(
+    Array.from({ length: 11 }, (_, k) => {
+      const f = (k - 5) / 5;
+      return [
+        new THREE.Vector3(0, 0.25, 0),
+        new THREE.Vector3(-length * 0.12, 0.3, f * width * 0.65),
+        new THREE.Vector3(
+          -length * (0.19 + Math.abs(f) * 0.07),
+          0.25,
+          f * width * 1.38,
+        ),
+      ];
+    }),
+    "#827862",
+    0.32,
+    "ray",
+  );
+  tailRays.name = "tail-membrane-rays";
+  tail.add(tailRays);
   const dorsalShape = new THREE.Shape();
   dorsalShape.moveTo(-length * 0.28, width * 0.38);
   dorsalShape.quadraticCurveTo(
@@ -673,31 +707,31 @@ export function createKoi(length: number, seed: number) {
     );
   dorsalFin.name = "dorsal-fin";
   dorsalFin.material.opacity = 0.45;
-  dorsal.add(dorsalFin);
-  dorsal.add(
-    rays(
-      [
-        ...Array.from({ length: 7 }, (_, i) => {
-          const t = i / 6;
-          return [
-            new THREE.Vector3(
-              length * (-0.25 + t * 0.4),
-              width * (0.43 + 0.15 * Math.sin(t * Math.PI)),
-              0,
-            ),
-            new THREE.Vector3(
-              length * (-0.21 + t * 0.37),
-              width * (1.3 - t * 0.66),
-              0,
-            ),
-          ];
-        }),
-        dorsalShape.getPoints(28).map((p) => new THREE.Vector3(p.x, p.y, 0.15)),
-      ],
-      "#927b53",
-      0.64,
-    ),
+  dorsal.add(dorsalFin, finEdge(dorsalShape, "dorsal-fin", true));
+  const dorsalRays = rays(
+    [
+      ...Array.from({ length: 7 }, (_, i) => {
+        const t = i / 6;
+        return [
+          new THREE.Vector3(
+            length * (-0.25 + t * 0.4),
+            width * (0.43 + 0.15 * Math.sin(t * Math.PI)),
+            0,
+          ),
+          new THREE.Vector3(
+            length * (-0.21 + t * 0.37),
+            width * (1.3 - t * 0.66),
+            0,
+          ),
+        ];
+      }),
+    ],
+    "#827862",
+    0.32,
+    "ray",
   );
+  dorsalRays.name = "dorsal-fin-rays";
+  dorsal.add(dorsalRays);
   group.add(dorsal);
 
   const mouth = new THREE.Group();
@@ -726,9 +760,9 @@ export function createKoi(length: number, seed: number) {
   opening.scale.set(1.18, 0.54, 1);
   opening.position.z = -length * 0.002;
   mouth.add(opening);
-  group.add(mouth);
+  headFeatures.add(mouth);
   for (const side of [-1, 1])
-    group.add(
+    headFeatures.add(
       rays(
         [
           [
@@ -780,10 +814,31 @@ export function createKoi(length: number, seed: number) {
         (Math.sin(time * 4.4 - t * 7) * (1 - t) ** 2 * width * 0.35 +
           bend * THREE.MathUtils.clamp((0.78 - t) / 0.78, 0, 1) ** 2) *
         activity;
-      for (let i = 0; i < attribute.count; i++) {
-        const t = base[i * 3] / length + 0.5;
-        attribute.setZ(i, base[i * 3 + 2] + spine(t));
-      }
+      // A small phase-linked yaw and turn lead, blended continuously through
+      // the neck. The front stays rigid so eyes, lips, gills and barbels cannot
+      // slide off its surface. Rear undulation and the swim path are unchanged.
+      const headAngle =
+        -(
+          Math.sin(time * 4.4 - 1.8) * 0.045 +
+          THREE.MathUtils.clamp(turnRate, -0.8, 0.8) * 0.055
+        ) * activity;
+      head.rotation.y = headAngle;
+      const deform = (
+        target: THREE.BufferAttribute,
+        rest: Float32Array,
+        i: number,
+      ) => {
+        const x = rest[i * 3],
+          z = rest[i * 3 + 2];
+        const t = x / length + 0.5;
+        const weight = THREE.MathUtils.smoothstep(t, 0.52, 0.7);
+        const a = headAngle * weight,
+          c = Math.cos(a),
+          s = Math.sin(a);
+        target.setX(i, headPivot + (x - headPivot) * c + z * s);
+        target.setZ(i, z * c - (x - headPivot) * s + spine(t) * (1 - weight));
+      };
+      for (let i = 0; i < attribute.count; i++) deform(attribute, base, i);
       attribute.needsUpdate = true;
       tail.position.z = spine(0.06);
       tail.rotation.y = -Math.atan2(spine(0.07) - spine(0.05), length * 0.02);
@@ -796,10 +851,7 @@ export function createKoi(length: number, seed: number) {
       );
       for (const part of dorsalParts) {
         for (let i = 0; i < part.attribute.count; i++)
-          part.attribute.setZ(
-            i,
-            part.base[i * 3 + 2] + spine(part.base[i * 3] / length + 0.5),
-          );
+          deform(part.attribute, part.base, i);
         part.attribute.needsUpdate = true;
       }
       mouth.scale.y = 1 + Math.sin(time * 1.6) * 0.045 * activity;

@@ -8,6 +8,7 @@ import { projects } from "../src/data/projects";
 const params = new URLSearchParams(location.search);
 const fixed = params.has("time") ? Number(params.get("time")) : null;
 const reduced = params.has("reduced");
+const hoverCycle = params.has("hover-cycle");
 const models = document.querySelector("#models")!;
 const status = document.querySelector("#status")!;
 const selected = params.get("id");
@@ -68,6 +69,8 @@ const samples = projects
         dither.resize(width, height, 1.5);
       }
       emblem.animate(time, reduced);
+      if (hoverCycle)
+        leaf.group.scale.setScalar(1 + 0.011 * (1 - Math.cos(time * 3)));
       dither.render(renderer, scene, camera);
     };
     return { render, renderer, emblem };

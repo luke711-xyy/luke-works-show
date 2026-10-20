@@ -16,10 +16,10 @@ Let visitors discover eight real projects through an interactive lotus pond, fol
 
 ## Capabilities and Constraints
 - Eight bounded, continuously wandering koi represent the eight supplied projects. They avoid each other and are often obscured by dense leaves.
-- Pointer or touch motion parts leaves. Selecting a visible koi takes the visitor to the corresponding project in the adjacent horizontal collection.
+- Pointer or touch motion parts home leaves, lotus blooms and buds as whole objects. A phone tap holds the parting briefly before a spring return; gallery decoration flowers remain unchanged. Selecting a visible koi takes the visitor to the corresponding project in the adjacent horizontal collection.
 - The selected koi remains the same object during the transition and guides horizontal browsing, sometimes circling a leaf.
 - Project leaves initially contain only a name and an original project emblem; activation opens the full case study.
-- All visual subjects and media previews use real dithering. Warm paper grain is exempt. A clear screenshot view is explicitly permitted.
+- First- and second-level visual subjects use real dithering; warm paper grain is exempt. Third-level case-study screenshots and video posters retain their original colors with no dithering, including the image viewer. Video playback remains unchanged.
 - Project claims must be grounded in supplied material and public source. Unverified metrics and sole-authorship claims are omitted.
 
 ## Brand Commitments

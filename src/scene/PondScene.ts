@@ -55,7 +55,26 @@ type Fish = ReturnType<typeof createKoi> & {
   angle: number;
   scale: number;
 };
+type Flower = {
+  object: THREE.Group;
+  base: Vec2;
+  phase: number;
+  radius: number;
+  center: Vec2;
+  reach: Vec2;
+  offset: Vec2;
+  velocity: Vec2;
+};
 export type SceneFrame = {
+  inscription: Vec2 & { visible: boolean; radius: number; angle: number };
+  projects: {
+    id: ProjectId;
+    polygon: Vec2[];
+    bounds: { x: number; y: number; width: number; height: number };
+    title: Vec2;
+    radius: number;
+    scale: number;
+  }[];
   fish: {
     id: ProjectId;
     x: number;
@@ -106,7 +125,7 @@ export class PondScene {
   private wakeView = 0;
   private leaves: Leaf[] = [];
   private galleryLeaves: Leaf[] = [];
-  private flowers: { object: THREE.Group; base: Vec2; phase: number }[] = [];
+  private flowers: Flower[] = [];
   private fish: Fish[] = [];
   private emblems: {
     object: THREE.Group;
@@ -122,9 +141,10 @@ export class PondScene {
   private focused: ProjectId | null = null;
   private selected: ProjectId = "mosic";
   private detail = false;
-  private detailSince = 0;
   private hovered: ProjectId | null = null;
   private hoverProject: ProjectId | null = null;
+  private projectRay = new THREE.Raycaster();
+  private projectPoint = new THREE.Vector2();
   private scroll = 0;
   private scrollVelocity = 0;
   private progress = 0;
@@ -184,6 +204,11 @@ export class PondScene {
 
   resize(width: number, height: number) {
     if (this.w === width && this.h === height) return;
+    const previousHeight = this.h;
+    const relayoutOnly =
+      this.w === width &&
+      width < 640 &&
+      Math.min(previousHeight, height) > width * 1.25;
     const destinationScroll =
       (this.journey.destinationScroll / galleryStride(this.w)) *
       galleryStride(width);
@@ -191,7 +216,8 @@ export class PondScene {
     this.w = width;
     this.h = height;
     this.scroll = this.journey.scroll;
-    this.dpr = Math.min(devicePixelRatio || 1, width < 640 ? 1.5 : 1.5);
+    this.dpr = Math.min(devicePixelRatio || 1, width < 640 ? 1 : 1.5);
+    this.pacing = width < 640 ? 30 : 60;
     this.renderer.setPixelRatio(this.dpr);
     this.renderer.setSize(width, height, false);
     this.dither.resize(width, height, this.dpr);
@@ -200,6 +226,8 @@ export class PondScene {
     this.camera.top = height / 2;
     this.camera.bottom = -height / 2;
     this.camera.updateProjectionMatrix();
+    // Hit contours are projected before the renderer's first camera update.
+    this.camera.updateMatrixWorld(true);
     const shadowCamera = this.sunlight.shadow.camera,
       bound = Math.max(width, height) * 0.85;
     shadowCamera.left = -bound;
@@ -209,6 +237,24 @@ export class PondScene {
     shadowCamera.near = 100;
     shadowCamera.far = 4000;
     shadowCamera.updateProjectionMatrix();
+    if (relayoutOnly) {
+      // Mobile browser chrome changes height during a gesture. Reuse every
+      // geometry/material/shader, and move the existing layout instead.
+      const scale = height / previousHeight;
+      for (const leaf of [...this.leaves, ...this.galleryLeaves])
+        leaf.base.y *= scale;
+      for (const flower of this.flowers) flower.base.y *= scale;
+      for (const fish of this.fish) {
+        fish.patrol.y *= scale;
+        fish.patrol.home.y *= scale;
+        fish.patrol.ry *= scale;
+        for (const point of fish.patrol.controls) point.y *= scale;
+      }
+      for (const leaf of this.guideLeaves) leaf.y *= scale;
+      this.guide.y *= scale;
+      this.wake.reset();
+      return;
+    }
     this.root.remove(this.wake.group);
     this.wake.reset();
     this.wakeView = 0;
@@ -266,7 +312,13 @@ export class PondScene {
     elevation: number,
     project?: ProjectId,
   ) {
-    const object = createLeaf(radius, seed, tone, true);
+    const object = createLeaf(
+      radius,
+      seed,
+      tone,
+      true,
+      this.w < 640 ? "compact" : "full",
+    );
     const leaf: Leaf = {
       ...object,
       base,
@@ -349,6 +401,7 @@ export class PondScene {
         8 + (i % 4) * 8,
       ),
     );
+    this.leaves[7].group.name = "portfolio-inscription-leaf";
     const bloomLocations = mobile
       ? [
           [0.19, 0.22, 0.14],
@@ -360,22 +413,18 @@ export class PondScene {
           [0.85, 0.65, 0.048],
           [0.38, 0.91, 0.043],
         ];
-    bloomLocations.forEach(([x, y, r], i) => {
-      const object = createFlower(w * r, i * 0.5 + 2);
-      this.root.add(object);
-      this.flowers.push({ object, base: { x: x * w, y: y * h }, phase: i * 2 });
-    });
+    bloomLocations.forEach(([x, y, r], i) =>
+      this.addFlower({ x: x * w, y: y * h }, w * r, i * 0.5 + 2, i * 2),
+    );
     const budLocations = mobile
       ? [[0.88, 0.42, 0.052]]
       : [
           [0.075, 0.63, 0.022],
           [0.925, 0.31, 0.019],
         ];
-    budLocations.forEach(([x, y, r], i) => {
-      const object = createFlower(w * r, i + 7, "bud");
-      this.root.add(object);
-      this.flowers.push({ object, base: { x: x * w, y: y * h }, phase: i + 1 });
-    });
+    budLocations.forEach(([x, y, r], i) =>
+      this.addFlower({ x: x * w, y: y * h }, w * r, i + 7, i + 1, "bud"),
+    );
     homePoints(w, h).forEach((home, i) => {
       const length = clamp(w * 0.071, 51, 112),
         object = createKoi(length, this.seed + i * 193);
@@ -417,14 +466,6 @@ export class PondScene {
         );
       leaf.rotation = Math.sin(i * 1.7) * 0.16;
       leaf.group.rotation.y = leaf.rotation;
-      const emblem = createEmblem(project.id, radius * 0.49);
-      emblem.group.position.set(0, 9, -radius * 0.13);
-      leaf.group.add(emblem.group);
-      this.emblems.push({
-        object: emblem.group,
-        id: project.id,
-        animate: emblem.animate,
-      });
       const little = this.addLeaf(
         { x: base.x - radius * 0.75, y: h * 0.9 + Math.sin(i) * h * 0.03 },
         radius * 0.35,
@@ -434,15 +475,80 @@ export class PondScene {
       );
       little.group.userData.galleryDecoration = true;
       if (i % 3 === 0) {
-        const flower = createFlower(radius * 0.19, i);
-        this.root.add(flower);
-        flower.userData.galleryDecoration = true;
-        this.flowers.push({
-          object: flower,
-          base: { x: base.x - radius * 0.78, y: h * 0.72 },
-          phase: i,
-        });
+        this.addFlower(
+          { x: base.x - radius * 0.78, y: h * 0.72 },
+          radius * 0.19,
+          i,
+          i,
+          "open",
+          true,
+        );
       }
+    });
+  }
+
+  private addFlower(
+    base: Vec2,
+    radius: number,
+    seed: number,
+    phase: number,
+    stage: "open" | "bud" = "open",
+    decoration = false,
+  ) {
+    const object = createFlower(radius, seed, stage);
+    object.userData.galleryDecoration = decoration;
+    // Cache the projected extent once, not per frame. A raised bud is well
+    // above its root anchor; its visible head must receive touch/hover too.
+    const bounds = new THREE.Box3().setFromObject(object);
+    let top = Infinity,
+      bottom = -Infinity;
+    for (const y of [bounds.min.y, bounds.max.y])
+      for (const z of [bounds.min.z, bounds.max.z]) {
+        const projectedY = z * SIN - y * COS;
+        top = Math.min(top, projectedY);
+        bottom = Math.max(bottom, projectedY);
+      }
+    this.root.add(object);
+    this.flowers.push({
+      object,
+      base,
+      radius,
+      phase,
+      center: { x: (bounds.min.x + bounds.max.x) / 2, y: (top + bottom) / 2 },
+      reach: {
+        x: Math.max(radius * 0.65, (bounds.max.x - bounds.min.x) / 2),
+        y: Math.max(radius * 0.5, (bottom - top) / 2),
+      },
+      offset: { x: 0, y: 0 },
+      velocity: { x: 0, y: 0 },
+    });
+  }
+
+  private prepareNearbyEmblem(shift: number) {
+    if (this.progress === 0 || this.detail) return;
+    const candidates = this.galleryLeaves
+      .map((leaf, index) => ({ leaf, index, x: this.w + leaf.base.x - shift }))
+      .filter(
+        ({ leaf, x }) =>
+          x > -leaf.radius * 2 &&
+          x < this.w + leaf.radius * 2 &&
+          !this.emblems.some((emblem) => emblem.id === leaf.project),
+      )
+      .sort((a, b) => Math.abs(a.x - this.w / 2) - Math.abs(b.x - this.w / 2));
+    const next = candidates[0];
+    if (!next) return;
+    // At most one model per frame, starting with the nearest leaf. Never build
+    // all eight intricate models in the initial home-page long task.
+    const radius = galleryRadius(this.w, this.h);
+    const emblem = createEmblem(next.leaf.project!, radius * 0.49);
+    emblem.group.position.set(0, 9, -radius * 0.13);
+    setPondLayer(emblem.group, 60 + next.index);
+    this.seam.bind(emblem.group, "works");
+    next.leaf.group.add(emblem.group);
+    this.emblems.push({
+      object: emblem.group,
+      id: next.leaf.project!,
+      animate: emblem.animate,
     });
   }
 
@@ -454,7 +560,6 @@ export class PondScene {
     const entering = state.page === "works" && this.progress < 0.05;
     const changedFish = this.selected !== state.selected;
     this.selected = state.selected;
-    if (!this.detail && state.detail) this.detailSince = this.time;
     this.detail = Boolean(state.detail);
     if (state.page !== "pond") this.tapDisturbance = null;
     this.focused = null;
@@ -485,13 +590,30 @@ export class PondScene {
       this.w >= 640 ||
       this.detail ||
       this.progress > 0.08 ||
-      !isVisiblePondLeafHit(
-        { x, y },
-        this.leaves.map((leaf) => ({
-          polygon: leaf.polygon,
-          visible: leaf.group.visible,
-          decoration: Boolean(leaf.group.userData.galleryDecoration),
-        })),
+      !(
+        isVisiblePondLeafHit(
+          { x, y },
+          this.leaves.map((leaf) => ({
+            polygon: leaf.polygon,
+            visible: leaf.group.visible,
+            decoration: Boolean(leaf.group.userData.galleryDecoration),
+          })),
+        ) ||
+        this.flowers.some(
+          (flower) =>
+            flower.object.visible &&
+            !flower.object.userData.galleryDecoration &&
+            Math.hypot(
+              (x -
+                flower.base.x -
+                flower.offset.x -
+                flower.center.x +
+                this.journey.x) /
+                flower.reach.x,
+              (y - flower.base.y - flower.offset.y - flower.center.y) /
+                flower.reach.y,
+            ) <= 1.1,
+        )
       )
     )
       return false;
@@ -527,8 +649,29 @@ export class PondScene {
   }
   getProjectOutline(id: ProjectId) {
     const leaf = this.galleryLeaves.find((l) => l.project === id);
-    if (!leaf) return "circle(0% at 50% 50%)";
+    if (!leaf || leaf.polygon.length < 3) return "circle(0% at 50% 50%)";
     return `polygon(${leaf.polygon.map((p) => `${((p.x / this.w) * 100).toFixed(2)}% ${((p.y / this.h) * 100).toFixed(2)}%`).join(",")})`;
+  }
+
+  projectAt(x: number, y: number): ProjectId | null {
+    if (this.detail || this.progress < 0.7 || this.journey.moving) return null;
+    const leaf = this.galleryLeaves.find(
+      (leaf) => leaf.group.visible && pointInPolygon({ x, y }, leaf.polygon),
+    );
+    if (leaf) return leaf.project!;
+    // A raised icon can extend beyond a curled leaf's silhouette. It belongs
+    // to the same project, not to the non-interactive background canvas.
+    this.projectRay.setFromCamera(
+      this.projectPoint.set((x / this.w) * 2 - 1, 1 - (y / this.h) * 2),
+      this.camera,
+    );
+    for (const emblem of this.emblems)
+      if (
+        emblem.object.parent?.visible &&
+        this.projectRay.intersectObject(emblem.object, true).length
+      )
+        return emblem.id;
+    return null;
   }
 
   private hitFish(point: Vec2): ProjectId | null {
@@ -565,12 +708,14 @@ export class PondScene {
     if (this.disposed) return;
     this.raf = requestAnimationFrame(this.tick);
     if (document.hidden) return;
+    if (this.detail && this.lastFrame > 0) return;
     if (now - this.lastFrame < 1000 / this.pacing - 1) return;
     const dt = clamp((now - this.previous) / 1000, 0.001, 0.05);
     this.previous = now;
     this.lastFrame = now;
-    this.time = (now - this.started) / 1000;
-    if (this.detail && this.time - this.detailSince > 0.8) return;
+    // RAF can be timestamped just before this scene was constructed within the
+    // same rendering update. Do not pass negative time to cyclic model poses.
+    this.time = Math.max(0, (now - this.started) / 1000);
     const wasTravelling = this.journey.moving;
     const previousScroll = this.scroll;
     this.journey.step(dt);
@@ -578,6 +723,7 @@ export class PondScene {
     this.scroll = this.journey.scroll;
     const shift = this.journey.x;
     this.seam.update(this.w, shift);
+    this.prepareNearbyEmblem(shift);
     if (wasTravelling) {
       this.scrollVelocity = (this.scroll - previousScroll) / dt;
       // During the authored pan, keep the same koi in view. Normal manual
@@ -650,12 +796,41 @@ export class PondScene {
     }
     for (const flower of this.flowers) {
       const decor = Boolean(flower.object.userData.galleryDecoration);
-      const x = flower.base.x + (decor ? this.w : 0) - shift;
-      this.put(flower.object, x, flower.base.y, 24);
+      const x = flower.base.x + (decor ? this.w : 0);
+      const dx = x + flower.center.x - pointer.x;
+      const dy = flower.base.y + flower.center.y - pointer.y;
+      const dist = Math.hypot(dx / flower.reach.x, dy / flower.reach.y);
+      const strength =
+        !decor && pointer.active && this.progress < 0.7
+          ? Math.max(0, 1.65 - dist)
+          : 0;
+      const len = Math.hypot(dx, dy);
+      const push =
+        flower.radius *
+        (focus ? 0.95 : 0.58) *
+        strength *
+        (this.reduced ? 0.5 : 1);
+      // Give a centered tap a stable escape direction rather than zero force.
+      const sx = spring(
+        flower.offset.x,
+        flower.velocity.x,
+        (len > 0.5 ? dx / len : Math.cos(flower.phase + 0.7)) * push,
+        dt,
+      );
+      const sy = spring(
+        flower.offset.y,
+        flower.velocity.y,
+        (len > 0.5 ? dy / len : Math.sin(flower.phase + 0.7)) * push,
+        dt,
+      );
+      flower.offset = { x: sx.value, y: sy.value };
+      flower.velocity = { x: sx.velocity, y: sy.velocity };
+      const screenX = x + flower.offset.x - shift;
+      this.put(flower.object, screenX, flower.base.y + flower.offset.y, 24);
       flower.object.rotation.z = this.reduced
         ? 0
         : Math.sin(this.time * 0.3 + flower.phase) * 0.012;
-      flower.object.visible = x > -150 && x < this.w + 150;
+      flower.object.visible = screenX > -150 && screenX < this.w + 150;
     }
     this.emblems.forEach((e) => {
       if (e.object.parent?.visible) e.animate(this.time, this.reduced);
@@ -734,14 +909,48 @@ export class PondScene {
     const work = performance.now() - begin;
     this.pressure = Math.max(0, this.pressure + (work > 20 ? dt : -dt * 0.5));
     if (this.pressure > 3) this.pacing = 30;
-    if (this.pressure === 0) this.pacing = 60;
+    if (this.pressure === 0) this.pacing = this.w < 640 ? 30 : 60;
     this.frames++;
     if (this.time - this.fpsTime > 1) {
       this.fps = this.frames / (this.time - this.fpsTime);
       this.frames = 0;
       this.fpsTime = this.time;
     }
+    const inscriptionLeaf = this.leaves[7];
     this.callbacks.frame({
+      inscription: {
+        ...this.project(inscriptionLeaf.group.position),
+        radius: inscriptionLeaf.radius,
+        angle: inscriptionLeaf.group.rotation.z,
+        visible: inscriptionLeaf.group.visible && this.progress < 1,
+      },
+      projects: this.galleryLeaves
+        .filter((leaf) => leaf.group.visible)
+        .map((leaf) => {
+          const xs = leaf.polygon.map((p) => p.x),
+            ys = leaf.polygon.map((p) => p.y);
+          const x = Math.min(...xs),
+            y = Math.min(...ys);
+          return {
+            id: leaf.project!,
+            polygon: leaf.polygon,
+            bounds: {
+              x,
+              y,
+              width: Math.max(...xs) - x,
+              height: Math.max(...ys) - y,
+            },
+            title: this.project(
+              new THREE.Vector3(
+                0,
+                0,
+                leaf.radius * (this.w < 640 ? 0.22 : 0.26),
+              ).applyMatrix4(leaf.group.matrixWorld),
+            ),
+            radius: leaf.radius,
+            scale: leaf.group.scale.x,
+          };
+        }),
       fish: this.fish.map((f) => ({
         id: f.id,
         ...f.screen,

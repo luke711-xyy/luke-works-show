@@ -33,3 +33,40 @@ export function navigationUrl(state: NavigationState) {
       ? `/works/${state.detail}`
       : `/works?focus=${state.selected}`;
 }
+
+export function writeHistorySafely(
+  browser: Pick<History, "pushState" | "replaceState">,
+  state: unknown,
+  url: string,
+  replace = false,
+) {
+  try {
+    browser[replace ? "replaceState" : "pushState"](state, "", url);
+    return true;
+  } catch {
+    // History may be rate-limited (notably WebKit), unavailable or sandboxed.
+    // URL persistence is optional; it must never block the visible interface.
+    return false;
+  }
+}
+
+export function commitNavigation(
+  browser: Pick<History, "pushState" | "replaceState">,
+  next: NavigationState,
+  scroll: number,
+  replace: boolean,
+  commit: () => void,
+) {
+  commit();
+  return writeHistorySafely(
+    browser,
+    {
+      folio: true,
+      scroll,
+      selected: next.selected,
+      detailEntry: Boolean(next.detail) && !replace,
+    },
+    navigationUrl(next),
+    replace,
+  );
+}

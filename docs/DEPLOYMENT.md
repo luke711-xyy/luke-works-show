@@ -10,6 +10,15 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 鱼鳍细化与累计本地更新发布
+
+- 不变部署地址：https://cbb1f613.luke-works-show.pages.dev/。
+- 入口脚本 `index-DYaTlrxH.js`；场景脚本 `PondScene-C_x4jwhW.js`。
+- 发布淡灰褐鳍缘、低对比鳍条，以及此前本地完成的移动端优化、荷花扰动、清晰图片、台板与荷叶边缘修复。
+- 107 项测试、TypeScript、生产构建通过。三个地址（正式域名、平台域名、不变部署域名）的首页、MOSIC 深链接、Meet Countdown 查询链接均返回 200 并引用新入口；每个地址的 7 个 JS/CSS 文件均与本地构建逐字节一致。
+- 正式域名上 48 个既有媒体 URL、源素材 24 个哈希及 23 张清晰图像素复核通过；新手机原彩图片返回 immutable 缓存策略。
+- 实际正式域名浏览器检查锦鲤入口、作品长卷、Water Reminder 案例、原彩图片与查看器，检查窗口无 warn/error。仅部署静态构建，没有推送或改动 GitHub 仓库。
+
 ## 更新
 
 ```sh

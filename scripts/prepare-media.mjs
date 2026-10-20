@@ -5,6 +5,8 @@ import { spawnSync } from "node:child_process";
 import sharp from "sharp";
 import { fileURLToPath } from "node:url";
 import { preparePaper } from "./prepare-paper.mjs";
+import { ditherBuffer } from "./dither-image.mjs";
+import { prepareResponsiveMedia } from "./prepare-responsive-media.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(root, "screenshots for use");
@@ -21,17 +23,6 @@ const groups = [
   ["huazhi", "7 Huazhi-Displayboard 公司具身全景图"],
   ["lanbridge", "8 lanbridge 跨系统文件快传"],
 ];
-const bayer = Array.from({ length: 64 }, (_, i) => {
-  let rank = 0;
-  const x = i % 8,
-    y = Math.floor(i / 8);
-  for (let bit = 0; bit < 3; bit++) {
-    const a = (x >> bit) & 1,
-      b = (y >> bit) & 1;
-    rank = rank * 4 + (b === 0 ? (a === 0 ? 0 : 2) : a === 0 ? 3 : 1);
-  }
-  return (rank + 0.5) / 64;
-});
 const hash = async (file) =>
   createHash("sha256")
     .update(await fs.readFile(file))
@@ -47,33 +38,7 @@ const manifest = {},
   sourceHashes = [];
 
 async function dither(input, destination, maxWidth = 1600) {
-  const { data, info } = await sharp(input)
-    .rotate()
-    .resize({ width: maxWidth, withoutEnlargement: true })
-    .removeAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const result = Buffer.alloc(data.length);
-  for (let y = 0; y < info.height; y++)
-    for (let x = 0; x < info.width; x++) {
-      const threshold = bayer[(y % 8) * 8 + (x % 8)] - 0.5;
-      const i = (y * info.width + x) * 3;
-      for (let c = 0; c < 3; c++) {
-        const value = Math.min(
-          1,
-          Math.max(0, (data[i + c] / 255 - 0.5) * 1.04 + 0.5),
-        );
-        result[i + c] = Math.min(
-          255,
-          Math.max(0, (Math.floor(value * 7 + threshold + 0.5) / 7) * 255),
-        );
-      }
-    }
-  await sharp(result, {
-    raw: { width: info.width, height: info.height, channels: 3 },
-  })
-    .webp({ quality: 92, effort: 5 })
-    .toFile(destination);
+  await fs.writeFile(destination, await ditherBuffer(input, maxWidth));
 }
 
 for (const [id, directory] of groups) {
@@ -95,15 +60,16 @@ for (const [id, directory] of groups) {
     );
     if (/\.mp4$/i.test(name)) {
       const videoOut = path.join(target, "film-dither.mp4"),
-        poster = path.join(target, "poster.webp");
+        poster = path.join(target, "poster.webp"),
+        posterRaw = path.join(target, "poster-clear.png");
       let cached = false;
       try {
         await fs.access(videoOut);
         await fs.access(poster);
+        await fs.access(posterRaw);
         cached = Boolean(old);
       } catch {}
       if (!cached) {
-        const posterRaw = path.join(target, "poster-clear.png");
         const shot = spawnSync("ffmpeg", [
           "-hide_banner",
           "-loglevel",
@@ -164,7 +130,7 @@ for (const [id, directory] of groups) {
         source: name,
         sha256: sourceHash,
         dither: `/media/${id}/film-dither.mp4`,
-        poster: `/media/${id}/poster.webp`,
+        poster: `/media/${id}/poster-clear.png`,
         width: 1920,
         height: 1080,
       });
@@ -216,6 +182,7 @@ await fs.writeFile(
   path.join(root, "src/data/media.generated.json"),
   JSON.stringify(manifest, null, 2),
 );
+await prepareResponsiveMedia();
 console.log(
   `Prepared ${sourceHashes.length} media files; all source hashes unchanged.`,
 );
