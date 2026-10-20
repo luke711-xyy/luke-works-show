@@ -1,0 +1,497 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-19T19:58:16.928Z",
+  "title": "Design System: Luke · 一池作品",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "灰紫交互墨",
+        "tonalRamp": [
+          "oklch(15% 0.0588 344.31)",
+          "oklch(26.43% 0.0588 344.31)",
+          "oklch(37.86% 0.0588 344.31)",
+          "oklch(49.29% 0.0588 344.31)",
+          "oklch(60.71% 0.0588 344.31)",
+          "oklch(72.14% 0.0588 344.31)",
+          "oklch(83.57% 0.0588 344.31)",
+          "oklch(95% 0.0588 344.31)"
+        ]
+      },
+      "lotus-deep": {
+        "role": "secondary",
+        "displayName": "深灰紫瓣尖",
+        "tonalRamp": [
+          "oklch(15.00% 0.0370 339.48)",
+          "oklch(26.43% 0.0531 339.48)",
+          "oklch(37.86% 0.0660 339.48)",
+          "oklch(49.29% 0.0731 339.48)",
+          "oklch(60.71% 0.0731 339.48)",
+          "oklch(72.14% 0.0660 339.48)",
+          "oklch(83.57% 0.0531 339.48)",
+          "oklch(95.00% 0.0370 339.48)"
+        ]
+      },
+      "lotus-petal": {
+        "role": "secondary",
+        "displayName": "灰粉瓣尖",
+        "tonalRamp": [
+          "oklch(15.00% 0.0363 343.56)",
+          "oklch(26.43% 0.0521 343.56)",
+          "oklch(37.86% 0.0647 343.56)",
+          "oklch(49.29% 0.0717 343.56)",
+          "oklch(60.71% 0.0717 343.56)",
+          "oklch(72.14% 0.0647 343.56)",
+          "oklch(83.57% 0.0521 343.56)",
+          "oklch(95.00% 0.0363 343.56)"
+        ]
+      },
+      "koi-red": {
+        "role": "tertiary",
+        "displayName": "朱红锦",
+        "tonalRamp": [
+          "oklch(15% 0.1503 33.37)",
+          "oklch(26.43% 0.1503 33.37)",
+          "oklch(37.86% 0.1503 33.37)",
+          "oklch(49.29% 0.1503 33.37)",
+          "oklch(60.71% 0.1503 33.37)",
+          "oklch(72.14% 0.1503 33.37)",
+          "oklch(83.57% 0.1503 33.37)",
+          "oklch(95% 0.1503 33.37)"
+        ]
+      },
+      "koi-orange": {
+        "role": "tertiary",
+        "displayName": "赭橙锦",
+        "tonalRamp": [
+          "oklch(15% 0.1380 50.60)",
+          "oklch(26.43% 0.1380 50.60)",
+          "oklch(37.86% 0.1380 50.60)",
+          "oklch(49.29% 0.1380 50.60)",
+          "oklch(60.71% 0.1380 50.60)",
+          "oklch(72.14% 0.1380 50.60)",
+          "oklch(83.57% 0.1380 50.60)",
+          "oklch(95% 0.1380 50.60)"
+        ]
+      },
+      "koi-gold": {
+        "role": "tertiary",
+        "displayName": "金黄锦",
+        "tonalRamp": [
+          "oklch(15% 0.1093 80.00)",
+          "oklch(26.43% 0.1093 80.00)",
+          "oklch(37.86% 0.1093 80.00)",
+          "oklch(49.29% 0.1093 80.00)",
+          "oklch(60.71% 0.1093 80.00)",
+          "oklch(72.14% 0.1093 80.00)",
+          "oklch(83.57% 0.1093 80.00)",
+          "oklch(95% 0.1093 80.00)"
+        ]
+      },
+      "koi-ivory": {
+        "role": "tertiary",
+        "displayName": "象牙锦",
+        "tonalRamp": [
+          "oklch(15% 0.0471 89.58)",
+          "oklch(26.43% 0.0471 89.58)",
+          "oklch(37.86% 0.0471 89.58)",
+          "oklch(49.29% 0.0471 89.58)",
+          "oklch(60.71% 0.0471 89.58)",
+          "oklch(72.14% 0.0471 89.58)",
+          "oklch(83.57% 0.0471 89.58)",
+          "oklch(95% 0.0471 89.58)"
+        ]
+      },
+      "neutral-paper": {
+        "role": "neutral",
+        "displayName": "暖黄宣纸",
+        "tonalRamp": [
+          "oklch(15.00% 0.0355 86.50)",
+          "oklch(26.43% 0.0509 86.50)",
+          "oklch(37.86% 0.0633 86.50)",
+          "oklch(49.29% 0.0702 86.50)",
+          "oklch(60.71% 0.0702 86.50)",
+          "oklch(72.14% 0.0633 86.50)",
+          "oklch(83.57% 0.0509 86.50)",
+          "oklch(95.00% 0.0355 86.50)"
+        ]
+      },
+      "neutral-ink": {
+        "role": "neutral",
+        "displayName": "正文墨",
+        "tonalRamp": [
+          "oklch(15% 0.0069 145.40)",
+          "oklch(26.43% 0.0069 145.40)",
+          "oklch(37.86% 0.0069 145.40)",
+          "oklch(49.29% 0.0069 145.40)",
+          "oklch(60.71% 0.0069 145.40)",
+          "oklch(72.14% 0.0069 145.40)",
+          "oklch(83.57% 0.0069 145.40)",
+          "oklch(95% 0.0069 145.40)"
+        ]
+      },
+      "neutral-muted": {
+        "role": "neutral",
+        "displayName": "次要墨",
+        "tonalRamp": [
+          "oklch(15% 0.0266 115.54)",
+          "oklch(26.43% 0.0266 115.54)",
+          "oklch(37.86% 0.0266 115.54)",
+          "oklch(49.29% 0.0266 115.54)",
+          "oklch(60.71% 0.0266 115.54)",
+          "oklch(72.14% 0.0266 115.54)",
+          "oklch(83.57% 0.0266 115.54)",
+          "oklch(95% 0.0266 115.54)"
+        ]
+      },
+      "leaf-deep": {
+        "role": "neutral",
+        "displayName": "浓墨叶",
+        "tonalRamp": [
+          "oklch(15% 0.0028 197.02)",
+          "oklch(26.43% 0.0028 197.02)",
+          "oklch(37.86% 0.0028 197.02)",
+          "oklch(49.29% 0.0028 197.02)",
+          "oklch(60.71% 0.0028 197.02)",
+          "oklch(72.14% 0.0028 197.02)",
+          "oklch(83.57% 0.0028 197.02)",
+          "oklch(95% 0.0028 197.02)"
+        ]
+      },
+      "leaf-mid": {
+        "role": "neutral",
+        "displayName": "实墨叶",
+        "tonalRamp": [
+          "oklch(15% 0.0000 89.88)",
+          "oklch(26.43% 0.0000 89.88)",
+          "oklch(37.86% 0.0000 89.88)",
+          "oklch(49.29% 0.0000 89.88)",
+          "oklch(60.71% 0.0000 89.88)",
+          "oklch(72.14% 0.0000 89.88)",
+          "oklch(83.57% 0.0000 89.88)",
+          "oklch(95% 0.0000 89.88)"
+        ]
+      },
+      "leaf-light": {
+        "role": "neutral",
+        "displayName": "淡墨叶",
+        "tonalRamp": [
+          "oklch(15% 0.0059 117.97)",
+          "oklch(26.43% 0.0059 117.97)",
+          "oklch(37.86% 0.0059 117.97)",
+          "oklch(49.29% 0.0059 117.97)",
+          "oklch(60.71% 0.0059 117.97)",
+          "oklch(72.14% 0.0059 117.97)",
+          "oklch(83.57% 0.0059 117.97)",
+          "oklch(95% 0.0059 117.97)"
+        ]
+      },
+      "lotus-base": {
+        "role": "secondary",
+        "displayName": "暖白瓣根",
+        "tonalRamp": [
+          "oklch(15.00% 0.0045 78.28)",
+          "oklch(26.43% 0.0065 78.28)",
+          "oklch(37.86% 0.0081 78.28)",
+          "oklch(49.29% 0.0090 78.28)",
+          "oklch(60.71% 0.0090 78.28)",
+          "oklch(72.14% 0.0081 78.28)",
+          "oklch(83.57% 0.0065 78.28)",
+          "oklch(95.00% 0.0045 78.28)"
+        ]
+      },
+      "bud-rose": {
+        "role": "secondary",
+        "displayName": "灰粉花苞",
+        "tonalRamp": [
+          "oklch(15.00% 0.0312 342.58)",
+          "oklch(26.43% 0.0447 342.58)",
+          "oklch(37.86% 0.0556 342.58)",
+          "oklch(49.29% 0.0616 342.58)",
+          "oklch(60.71% 0.0616 342.58)",
+          "oklch(72.14% 0.0556 342.58)",
+          "oklch(83.57% 0.0447 342.58)",
+          "oklch(95.00% 0.0312 342.58)"
+        ]
+      },
+      "bud-base": {
+        "role": "secondary",
+        "displayName": "浅白苞根",
+        "tonalRamp": [
+          "oklch(15.00% 0.0136 85.67)",
+          "oklch(26.43% 0.0195 85.67)",
+          "oklch(37.86% 0.0243 85.67)",
+          "oklch(49.29% 0.0269 85.67)",
+          "oklch(60.71% 0.0269 85.67)",
+          "oklch(72.14% 0.0243 85.67)",
+          "oklch(83.57% 0.0195 85.67)",
+          "oklch(95.00% 0.0136 85.67)"
+        ]
+      },
+      "leaf-pale": {
+        "role": "neutral",
+        "displayName": "浅灰蜡白",
+        "tonalRamp": [
+          "oklch(15.00% 0.0083 95.25)",
+          "oklch(26.43% 0.0118 95.25)",
+          "oklch(37.86% 0.0147 95.25)",
+          "oklch(49.29% 0.0163 95.25)",
+          "oklch(60.71% 0.0163 95.25)",
+          "oklch(72.14% 0.0147 95.25)",
+          "oklch(83.57% 0.0118 95.25)",
+          "oklch(95.00% 0.0083 95.25)"
+        ]
+      },
+      "fin-membrane": {
+        "role": "tertiary",
+        "displayName": "象牙薄鳍",
+        "tonalRamp": [
+          "oklch(15.00% 0.0153 90.34)",
+          "oklch(26.43% 0.0220 90.34)",
+          "oklch(37.86% 0.0273 90.34)",
+          "oklch(49.29% 0.0303 90.34)",
+          "oklch(60.71% 0.0303 90.34)",
+          "oklch(72.14% 0.0273 90.34)",
+          "oklch(83.57% 0.0220 90.34)",
+          "oklch(95.00% 0.0153 90.34)"
+        ]
+      },
+      "water-ink": {
+        "role": "neutral",
+        "displayName": "水纹墨",
+        "tonalRamp": [
+          "oklch(15.00% 0.0304 82.39)",
+          "oklch(26.43% 0.0436 82.39)",
+          "oklch(37.86% 0.0542 82.39)",
+          "oklch(49.29% 0.0601 82.39)",
+          "oklch(60.71% 0.0601 82.39)",
+          "oklch(72.14% 0.0542 82.39)",
+          "oklch(83.57% 0.0436 82.39)",
+          "oklch(95.00% 0.0304 82.39)"
+        ]
+      },
+      "water-light": {
+        "role": "neutral",
+        "displayName": "水光",
+        "tonalRamp": [
+          "oklch(15.00% 0.0272 89.91)",
+          "oklch(26.43% 0.0389 89.91)",
+          "oklch(37.86% 0.0484 89.91)",
+          "oklch(49.29% 0.0536 89.91)",
+          "oklch(60.71% 0.0536 89.91)",
+          "oklch(72.14% 0.0484 89.91)",
+          "oklch(83.57% 0.0389 89.91)",
+          "oklch(95.00% 0.0272 89.91)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "案例标题",
+        "purpose": "仅用于案例详情主标题；移动端固定42px。"
+      },
+      "project-title": {
+        "displayName": "作品叶标题",
+        "purpose": "覆盖场景荷叶的语义作品名称。"
+      },
+      "headline": {
+        "displayName": "介绍标题",
+        "purpose": "关于作品的二级标题。"
+      },
+      "title": {
+        "displayName": "决策标题",
+        "purpose": "案例决策小节标题。"
+      },
+      "summary": {
+        "displayName": "案例摘要",
+        "purpose": "宋体引言，最大31em。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "清晰中文无衬线，最大70ch。"
+      },
+      "label": {
+        "displayName": "轻控件标签",
+        "purpose": "边缘导航与轻按钮。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "paper-toolbar",
+        "value": "0 8px 18px #ead3a0b0",
+        "purpose": "案例固定工具栏与纸背景的柔和接缝。"
+      },
+      {
+        "name": "dark-leaf-title",
+        "value": "0 1px 7px #20241fd9",
+        "purpose": "深叶标题的局部文字影；浅叶不使用。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "pond-handoff",
+        "value": "1.41–2.25s by distance; smoothstep(t) = t*t*(3-2*t)",
+        "purpose": "同一相机先经过荷塘右端与长卷左端的固定接缝，再到目标；返回沿原路滑回。锦鲤保留同一对象。减少动态时直接定位。"
+      },
+      {
+        "name": "leaf-spring",
+        "value": "stiffness: 35; damping: 10",
+        "purpose": "指针或焦点拨叶的弹性回位。"
+      },
+      {
+        "name": "case-unfold",
+        "value": "650ms cubic-bezier(.16,1,.3,1)",
+        "purpose": "原生案例dialog从当前叶形展开；降低动态效果时取消。"
+      },
+      {
+        "name": "koi-waterway-weave",
+        "value": "phase: 0.13rad/s; speed cap: 22–58 CSS px/s; turn cap: 0.75rad/s",
+        "purpose": "长卷锦鲤持续沿叶缘与水道上下穿行；没有快速绕整圈模式，减少动态时停止自主巡游。"
+      },
+      {
+        "name": "reduced-motion-css",
+        "value": "animation: none; transition-duration: 0.01ms; scroll-behavior: auto",
+        "purpose": "减少非必要DOM运动；场景引导跟随与交互反馈不等于完全停帧。"
+      },
+      {
+        "name": "koi-water-wake",
+        "value": "2.8s; pool capacity: 64",
+        "purpose": "鱼经过后，水纹在原位置扩散淡出；降低动态效果时停用，与场景共用Bayer通道。"
+      },
+      {
+        "name": "koi-continuous-patrol",
+        "value": "C2 cubic B-spline; midpoint arc-length stepping; speed response: 1.4/s",
+        "purpose": "首页锦鲤沿持续延伸的曲线巡游，朝向跟随切线，身体与尾鳍随转弯弯曲；减少动态时停止巡游。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "fallback-compact",
+        "value": "440px"
+      },
+      {
+        "name": "mobile-css",
+        "value": "639px"
+      },
+      {
+        "name": "mobile-scene",
+        "value": "640px"
+      },
+      {
+        "name": "reading-compact",
+        "value": "900px"
+      },
+      {
+        "name": "fallback-four-columns",
+        "value": "1100px"
+      },
+      {
+        "name": "wide",
+        "value": "1600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "quiet-button",
+      "description": "实际透明轻按钮；SVG内联。纸纹与字体文件不嵌入，独立预览使用已列明的字体回退。",
+      "html": "<button class=\"ds-quiet\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M19 12H5m6-6-6 6 6 6\"/></svg><span>回到荷塘</span></button>",
+      "css": ".ds-quiet{display:inline-flex;align-items:center;gap:10px;padding:7px 0;background:none;border:0;border-radius:0;color:var(--ink,#292c29);font-size:12px;letter-spacing:.05em;cursor:pointer;font-family:\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",system-ui,sans-serif;}.ds-quiet svg{width:20px;height:20px;flex:none}.ds-quiet:hover{color:var(--lotus,#8d667c)}.ds-quiet:focus-visible{outline:2px solid var(--lotus,#8d667c);outline-offset:7px;}.ds-quiet:disabled{opacity:.28;cursor:default}"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "icon-button",
+      "description": "实际关闭／前后操作的图标按钮；无填色或容器阴影。",
+      "html": "<button class=\"ds-icon\" aria-label=\"关闭图片\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 6 12 12M18 6 6 18\"/></svg></button>",
+      "css": ".ds-icon{width:36px;height:36px;padding:7px;display:flex;align-items:center;justify-content:center;border:0;border-radius:0;background:none;color:var(--ink,#292c29);cursor:pointer}.ds-icon svg{width:22px;height:22px;flex:none}.ds-icon:hover:not(:disabled){color:var(--lotus,#8d667c)}.ds-icon:focus-visible{outline:2px solid var(--lotus,#8d667c);outline-offset:7px;}.ds-icon:disabled{opacity:.28;cursor:default}"
+    },
+    {
+      "name": "Text Action",
+      "kind": "button",
+      "refersTo": "text-action",
+      "description": "案例末尾的细线文字操作，状态沿用实际轻控件。",
+      "html": "<button class=\"ds-text\"><span>回到作品长卷</span><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></button>",
+      "css": ".ds-text{display:inline-flex;align-items:center;gap:13px;font-size:13px;text-decoration:none;border:0;border-bottom:1px solid #66654d;padding:8px 0 7px;background:none;border-radius:0;color:var(--ink,#292c29);cursor:pointer;font-family:\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",system-ui,sans-serif;}.ds-text svg{width:22px;height:22px;flex:none}.ds-text:hover{color:var(--lotus,#8d667c)}.ds-text:focus-visible{outline:2px solid var(--lotus,#8d667c);outline-offset:7px;}"
+    },
+    {
+      "name": "Gallery Position Navigation",
+      "kind": "nav",
+      "refersTo": "gallery-position",
+      "description": "八个实际菱形位置控件；aria-current表达当前项。独立预览不包含React滚动事件。",
+      "html": "<nav class=\"ds-progress\" aria-label=\"作品位置\"><button aria-label=\"移至MOSIC\" aria-current=\"true\"><span></span></button><button aria-label=\"移至Meet Countdown\"><span></span></button><button aria-label=\"移至Water Reminder\"><span></span></button><button aria-label=\"移至Moce Worldmaker\"><span></span></button><button aria-label=\"移至Moce Designer\"><span></span></button><button aria-label=\"移至Luke Teleprompter\"><span></span></button><button aria-label=\"移至Huazhi Displayboard\"><span></span></button><button aria-label=\"移至LanBridge\"><span></span></button></nav>",
+      "css": ".ds-progress{display:flex;align-items:center;gap:3px}.ds-progress button{width:25px;height:30px;padding:8px 5px;display:flex;align-items:center;justify-content:center;border:0;background:none;cursor:pointer}.ds-progress span{display:block;width:5px;height:5px;background:#747360;opacity:.5;transform:rotate(45deg);transition:width .4s,opacity .4s}.ds-progress [aria-current=true] span{width:13px;opacity:1;background:#654a58}.ds-progress button:focus-visible{outline:2px solid var(--lotus,#8d667c);outline-offset:7px;}@media(prefers-reduced-motion:reduce){.ds-progress span{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Static Fallback Project Entry",
+      "kind": "button",
+      "refersTo": "fallback-entry",
+      "description": "实际非WebGL入口；不是实时鱼命中层，也不伪造场景。",
+      "html": "<button class=\"ds-fallback\"><span>MOSIC</span></button>",
+      "css": ".ds-fallback{position:relative;min-height:64px;padding:12px 16px;background:#ead3a0ed;border:0;border-radius:0;color:var(--ink,#292c29);display:flex;align-items:center;justify-content:center;white-space:normal;cursor:pointer}.ds-fallback span{font-size:15px;line-height:1.5;text-align:center;overflow-wrap:anywhere;font-family:\"Folio Serif\",\"Noto Serif SC\",serif;}.ds-fallback:hover,.ds-fallback:focus-visible{background:#f6ebcd;outline:2px solid #8d667c;outline-offset:3px;border-radius:0}"
+    },
+    {
+      "name": "Project Leaf — Static Fallback",
+      "kind": "custom",
+      "refersTo": "project-leaf",
+      "description": "仅示范实际回退叶的DOM标题与墨灰填充。多边形轮廓是便于独立预览的简化近似，不是程序叶的精确采样；不复现Three.js杯形、徽记、光照、遮挡、Bayer抖色或交互放大。",
+      "html": "<button class=\"ds-leaf\" aria-label=\"展开MOSIC：音乐星球\"><span class=\"ds-leaf-title\">MOSIC<span>音乐星球</span></span></button>",
+      "css": ".ds-leaf{position:relative;width:320px;height:253px;display:flex;align-items:center;justify-content:center;padding:0;background:#474d42;border:0;color:#f5e9cc;cursor:pointer;clip-path:polygon(96% 46%,91% 70%,71% 91%,48% 97%,24% 87%,7% 67%,3% 44%,17% 18%,42% 4%,68% 11%,77% 26%,62% 38%,89% 29%)}.ds-leaf-title{position:absolute;left:10%;right:10%;top:63%;font-size:clamp(22px,2.4vw,39px);line-height:1.3;letter-spacing:-.025em;font-weight:500;text-align:center;text-wrap:balance;text-shadow:0 1px 7px #20241fd9;font-family:\"Folio Serif\",\"Noto Serif SC\",serif;}.ds-leaf-title>span{display:block;font-size:11px;letter-spacing:.12em;font-weight:400;margin-top:13px;opacity:.92;font-family:\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",system-ui,sans-serif;}.ds-leaf:focus-visible{outline:none}.ds-leaf:focus-visible .ds-leaf-title::after{content:\"\";position:absolute;left:20%;right:20%;bottom:-12px;border-bottom:1px solid #f5e9cc}"
+    },
+    {
+      "name": "Viewer Toggle",
+      "kind": "button",
+      "description": "截图查看器实际文字切换状态；暗色底仅为预览的局部上下文。独立预览不载入或切换媒体。",
+      "html": "<div class=\"ds-viewer\"><button aria-pressed=\"true\">返回抖色</button><button aria-pressed=\"false\">原尺寸</button></div>",
+      "css": ".ds-viewer{display:flex;align-items:center;gap:25px;background:#252a24;padding:18px 28px}.ds-viewer button{font-size:12px;padding:8px 0;color:#d6cbb0;border:0;background:none;cursor:pointer;font-family:\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",system-ui,sans-serif;}.ds-viewer button[aria-pressed=true]{color:#fff2ce;text-decoration:underline;text-underline-offset:7px}.ds-viewer button:focus-visible{outline:2px solid var(--lotus,#8d667c);outline-offset:7px;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "一池作品，随鱼入卷",
+    "overview": "暖黄宣纸承接斜俯视的荷塘；深浅墨灰叶片相互遮挡，灰粉紫荷花与朱红、金黄、象牙白锦鲤提供有节制的暖色。这个世界来自已确认的用户视觉约定，不来自随机方向抽签。界面文字退到边缘，作品与材质承担第一眼的表达。\n\n当前实现把连续的 Three.js 场景与语义化 DOM 叠合：场景经过真正的 Bayer 有序抖色，文字仍可选择、聚焦和阅读。荷叶的杯形、折面、卷边和重叠投影构成体积，不以纸张噪点代替造型。本文是完成后的源码提取；前言意图与实际数值不一致时，以本文件提取的实现值为准。",
+    "keyCharacteristics": [
+      "暖宣纸、墨灰荷叶、灰粉紫花瓣与暖色锦鲤。",
+      "真正有序抖色与低对比纸纤维并存，语义文字保持清晰。",
+      "同一条锦鲤贯穿横向交接，运动保持连续。",
+      "控件轻、直角、少边框；案例正文具有安静而明确的阅读层级。"
+    ],
+    "rules": [
+      {
+        "name": "The Material Color Rule",
+        "body": "材质输入、照明结果与 Bayer 量化后的像素是三层不同的事实；新增场景对象应沿用材质家族，而不是从截图反采一个显示色替换输入色。",
+        "section": "colors"
+      },
+      {
+        "name": "The Semantic Text Rule",
+        "body": "标题、说明和项目入口保留真实 DOM 文本；颗粒蒙版不能替代可读性、焦点或可访问名称。",
+        "section": "typography"
+      },
+      {
+        "name": "The Shaped Before Grain Rule",
+        "body": "杯形、折面、卷边和宽幅明暗应先在视口尺度成立，再叠加细颗粒；抖色不是补救扁平几何的噪声层。",
+        "section": "elevation"
+      },
+      {
+        "name": "The Whole-Object Occlusion Rule",
+        "body": "叶片之间按整个对象叠放，内部三维深度保留；荷花与花苞整体位于全部荷叶上方。阴影遵守同一上下关系。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 保留暖宣纸、深浅墨灰、灰粉紫与暖色锦鲤的角色关系。",
+      "Do 使用真正的 Bayer 有序阈值与色阶量化；纸纹不需要进入抖色通道。",
+      "Do 保留同一锦鲤的横向交接、语义项目入口和清晰正文。",
+      "Do 在键盘焦点、移动端、降低动态效果和非 WebGL 模式下保留所有作品的入口。",
+      "Do 让案例图片与视频保持原始比例，并保留清晰截图查看能力。"
+    ],
+    "donts": [
+      "Don't 用荧光绿叶、玻璃材质或高饱和花色替换已确认的水墨世界。",
+      "Don't 用随机噪点覆盖替代 Bayer 抖色，或把程序化几何描述成静态图片。",
+      "Don't 在荷塘首屏加入巨型介绍标题、传记或技术标签。",
+      "Don't 把错落的作品叶改成一排相同矩形卡片。",
+      "Don't 把静态侧车预览或桌面截图当作实时运动、真实触控或性能验证。"
+    ]
+  }
+}
