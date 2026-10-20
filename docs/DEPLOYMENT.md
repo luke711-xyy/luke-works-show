@@ -10,6 +10,17 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 连续场景与可缩放图集发布
+
+- 运行代码提交：`729905ebfbc7068e014a0c0f2bc4d324854197f2`，已推送 GitHub `main`；部署后的本记录单独提交。
+- 不变部署地址：https://055daa2b.luke-works-show.pages.dev/。
+- 入口 `index-B-LnIRRU.js`、场景 `PondScene-Cnu4IcIG.js`、样式 `index-BoB397Ke.css`。
+- 发布两份已确认方案：原首屏构图不变，右侧完整叶片与扰动包络持续保留于屏幕外，长卷接在缓冲区后；预热模型移至空闲任务，实际抖色通道 shader 就绪再显示，纸纹及入口走合成位移。图片查看器支持适应窗口相对 100%–800% 缩放、条件还原、同项目图片序号、100% 滑动切图、放大后拖动和按钮／键盘切图。
+- 138 项测试（18 文件）、TypeScript、生产构建、格式与差异检查通过；独立复核无未解决的 Critical／Important。实际 React 查看器在 390／1280px 下 36 项交互检查通过，实际应用全项目点击链及取消／键盘 52 项通过；手机触摸证据为合成 PointerEvent，不是真机认证。性能同机样本与限制见 `docs/PERFORMANCE.md`。
+- 三个域名各自的首页、Worldmaker 查询链接与案例深链接均 HTTP 200 并引用新入口；各 7 个 JS/CSS 与本地构建逐字节一致。24 个源素材哈希、23 张原彩图像素一致性与正式域名 48 个媒体 URL 校验通过。
+- 正式域名原生输入确认：从凉亭进入详情后点图，按钮缩放至 800% 且上限禁用、还原至 100% 并居中，水平拖动从 01/04 切到 02/04 并保持 100%；再放大后拖动确实平移原图，原彩图已加载。Escape 只关闭最上层，第二次关闭详情，再沿原路返回荷塘。检查期间无 warn/error。
+- 线上图集证据 `.impeccable/review/zoom-gallery-live.png`，中途完整叶片证据 `continuous-foliage-midway.png`；验收截图及测试夹具不在静态构建中。未改 DNS、主域名、安全策略或原始媒体内容。
+
 ## 2026-10-21 手机鱼名、标题符号与凉亭停留发布
 
 - 运行代码提交：`0db10f2e7ad56aae06fc7368c638bd6a8e7c0883`，已推送 GitHub `main`；发布记录另作纯文档提交。
