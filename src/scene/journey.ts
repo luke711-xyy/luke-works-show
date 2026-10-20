@@ -10,21 +10,25 @@ export class Journey {
   constructor(
     private width: number,
     private reduced = false,
+    private span = width,
   ) {}
+  get origin() {
+    return this.span;
+  }
   get moving() {
     return this.x !== this.target;
   }
   get progress() {
-    return Math.min(1, this.x / this.width);
+    return Math.min(1, this.x / this.span);
   }
   get scroll() {
-    return Math.max(0, this.x - this.width);
+    return Math.max(0, this.x - this.span);
   }
   get destinationScroll() {
-    return Math.max(0, this.target - this.width);
+    return Math.max(0, this.target - this.span);
   }
   go(page: "pond" | "works", scroll: number, immediate = false) {
-    const target = page === "works" ? this.width + Math.max(0, scroll) : 0;
+    const target = page === "works" ? this.span + Math.max(0, scroll) : 0;
     if (immediate || this.reduced) {
       this.x = this.from = this.target = target;
       return;
@@ -46,13 +50,17 @@ export class Journey {
     this.x = t === 1 ? this.target : lerp(this.from, this.target, smooth(t));
   }
   setScroll(scroll: number) {
-    this.x = this.from = this.target = this.width + Math.max(0, scroll);
+    this.x = this.from = this.target = this.span + Math.max(0, scroll);
   }
-  resize(width: number, destinationScroll: number) {
+  resize(width: number, destinationScroll: number, origin = width) {
     const moving = this.moving;
     const ratio = width / this.width;
-    this.x *= ratio;
-    this.target = this.target ? width + Math.max(0, destinationScroll) : 0;
+    this.x =
+      this.x <= this.span
+        ? (this.x * origin) / this.span
+        : origin + (this.x - this.span) * ratio;
+    this.span = origin;
+    this.target = this.target ? origin + Math.max(0, destinationScroll) : 0;
     this.width = width;
     if (!moving) {
       this.x = this.from = this.target;

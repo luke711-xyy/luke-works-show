@@ -85,6 +85,7 @@ export type SceneFrame = {
   hovered: ProjectId | null;
   progress: number;
   cameraX: number;
+  galleryOrigin: number;
   scroll: number;
   travelling: boolean;
   fps: number;
@@ -132,6 +133,8 @@ export class PondScene {
     id: ProjectId;
     animate: Emblem["animate"];
   }[] = [];
+  private warmJob: number | null = null;
+  private warmIdle = false;
   private w = 1;
   private h = 1;
   private dpr = 1;
@@ -212,10 +215,8 @@ export class PondScene {
     const destinationScroll =
       (this.journey.destinationScroll / galleryStride(this.w)) *
       galleryStride(width);
-    this.journey.resize(width, destinationScroll);
     this.w = width;
     this.h = height;
-    this.scroll = this.journey.scroll;
     this.dpr = Math.min(devicePixelRatio || 1, width < 640 ? 1 : 1.5);
     this.pacing = width < 640 ? 30 : 60;
     this.renderer.setPixelRatio(this.dpr);
@@ -238,6 +239,8 @@ export class PondScene {
     shadowCamera.far = 4000;
     shadowCamera.updateProjectionMatrix();
     if (relayoutOnly) {
+      this.journey.resize(width, destinationScroll, this.journey.origin);
+      this.scroll = this.journey.scroll;
       // Mobile browser chrome changes height during a gesture. Reuse every
       // geometry/material/shader, and move the existing layout instead.
       const scale = height / previousHeight;
@@ -267,6 +270,30 @@ export class PondScene {
     this.fish = [];
     this.emblems = [];
     this.build();
+    // Keep the existing viewport composition. Only the unseen world extends:
+    // include each complete leaf plus its maximum spring/rotation envelope.
+    const origin = Math.ceil(
+      Math.max(
+        width,
+        ...this.leaves
+          .filter((leaf) => !leaf.group.userData.galleryDecoration)
+          .map(
+            (leaf) =>
+              leaf.base.x +
+              Math.max(
+                ...leaf.contour.map(
+                  (point) =>
+                    point.x * Math.cos(leaf.rotation) +
+                    point.z * Math.sin(leaf.rotation),
+                ),
+              ) +
+              leaf.radius * 2 +
+              24,
+          ),
+      ),
+    );
+    this.journey.resize(width, destinationScroll, origin);
+    this.scroll = this.journey.scroll;
     this.root.add(this.wake.group);
     setPondLayer(this.wake.group, 1);
     this.fish.forEach((fish) => setPondLayer(fish.group, 0));
@@ -524,32 +551,79 @@ export class PondScene {
     });
   }
 
-  private prepareNearbyEmblem(shift: number) {
-    if (this.progress === 0 || this.detail) return;
-    const candidates = this.galleryLeaves
-      .map((leaf, index) => ({ leaf, index, x: this.w + leaf.base.x - shift }))
-      .filter(
-        ({ leaf, x }) =>
-          x > -leaf.radius * 2 &&
-          x < this.w + leaf.radius * 2 &&
-          !this.emblems.some((emblem) => emblem.id === leaf.project),
-      )
-      .sort((a, b) => Math.abs(a.x - this.w / 2) - Math.abs(b.x - this.w / 2));
-    const next = candidates[0];
-    if (!next) return;
-    // At most one model per frame, starting with the nearest leaf. Never build
-    // all eight intricate models in the initial home-page long task.
+  private buildEmblem(index: number) {
+    const leaf = this.galleryLeaves[index];
+    if (!leaf || this.emblems.some((emblem) => emblem.id === leaf.project))
+      return;
     const radius = galleryRadius(this.w, this.h);
-    const emblem = createEmblem(next.leaf.project!, radius * 0.49);
+    const emblem = createEmblem(leaf.project!, radius * 0.49);
     emblem.group.position.set(0, 9, -radius * 0.13);
-    setPondLayer(emblem.group, 60 + next.index);
+    setPondLayer(emblem.group, 60 + index);
     this.seam.bind(emblem.group, "works");
-    next.leaf.group.add(emblem.group);
+    leaf.group.add(emblem.group);
     this.emblems.push({
       object: emblem.group,
-      id: next.leaf.project!,
+      id: leaf.project!,
       animate: emblem.animate,
     });
+    // compileAsync traverses this object even when its parent is offscreen.
+    // Use the real scene's lights, without painting it into the current pond.
+    if (this.renderer.compileAsync) {
+      emblem.group.visible = false;
+      const reveal = () => {
+        if (!this.disposed) emblem.group.visible = true;
+      };
+      const target = this.renderer.getRenderTarget();
+      try {
+        // Shader cache keys include the render target's output color space.
+        // Match the linear offscreen pass, not the final sRGB framebuffer.
+        this.renderer.setRenderTarget(this.dither.target);
+        void this.renderer
+          .compileAsync(emblem.group, this.camera, this.scene)
+          .then(reveal, reveal);
+      } finally {
+        this.renderer.setRenderTarget(target);
+      }
+    }
+  }
+
+  private queueWarmup() {
+    if (
+      this.warmJob !== null ||
+      this.disposed ||
+      this.detail ||
+      this.journey.moving ||
+      this.emblems.length === this.galleryLeaves.length
+    )
+      return;
+    const work = () => {
+      this.warmJob = null;
+      if (this.disposed || this.detail || this.journey.moving) return;
+      const missing = this.galleryLeaves
+        .map((leaf, index) => ({ leaf, index }))
+        .filter(
+          ({ leaf }) =>
+            !this.emblems.some((emblem) => emblem.id === leaf.project),
+        )
+        .sort(
+          (a, b) =>
+            Math.abs(
+              this.journey.origin + a.leaf.base.x - this.journey.x - this.w / 2,
+            ) -
+            Math.abs(
+              this.journey.origin + b.leaf.base.x - this.journey.x - this.w / 2,
+            ),
+        );
+      const next =
+        missing.find(({ leaf }) => leaf.project === this.selected) ??
+        missing[0];
+      if (next) this.buildEmblem(next.index);
+      this.queueWarmup();
+    };
+    this.warmIdle = typeof window.requestIdleCallback === "function";
+    this.warmJob = this.warmIdle
+      ? window.requestIdleCallback(work, { timeout: 1000 })
+      : window.setTimeout(work, 120);
   }
 
   setNavigation(
@@ -722,8 +796,7 @@ export class PondScene {
     this.progress = this.journey.progress;
     this.scroll = this.journey.scroll;
     const shift = this.journey.x;
-    this.seam.update(this.w, shift);
-    this.prepareNearbyEmblem(shift);
+    this.seam.update(this.w, shift, this.journey.origin);
     if (wasTravelling) {
       this.scrollVelocity = (this.scroll - previousScroll) / dt;
       // During the authored pan, keep the same koi in view. Normal manual
@@ -757,7 +830,7 @@ export class PondScene {
           };
     for (const leaf of this.leaves) {
       const isDecoration = Boolean(leaf.group.userData.galleryDecoration);
-      const x = leaf.base.x + (isDecoration ? this.w : 0),
+      const x = leaf.base.x + (isDecoration ? this.journey.origin : 0),
         dx = x - pointer.x,
         dy = leaf.base.y - pointer.y;
       const dist = Math.hypot(dx / leaf.radius, dy / (leaf.radius * SIN)),
@@ -787,7 +860,7 @@ export class PondScene {
         x + leaf.offset.x - shift < this.w + leaf.radius * 1.4;
     }
     for (const leaf of this.galleryLeaves) {
-      const x = this.w + leaf.base.x - shift;
+      const x = this.journey.origin + leaf.base.x - shift;
       this.put(leaf.group, x, leaf.base.y, leaf.elevation);
       const targetScale = this.hoverProject === leaf.project ? 1.022 : 1;
       leaf.group.scale.setScalar(lerp(leaf.group.scale.x, targetScale, dt * 5));
@@ -796,7 +869,7 @@ export class PondScene {
     }
     for (const flower of this.flowers) {
       const decor = Boolean(flower.object.userData.galleryDecoration);
-      const x = flower.base.x + (decor ? this.w : 0);
+      const x = flower.base.x + (decor ? this.journey.origin : 0);
       const dx = x + flower.center.x - pointer.x;
       const dy = flower.base.y + flower.center.y - pointer.y;
       const dist = Math.hypot(dx / flower.reach.x, dy / flower.reach.y);
@@ -841,7 +914,7 @@ export class PondScene {
         heading = f.patrol.angle,
         turnRate = f.patrol.turnRate;
       if (f.id === this.selected && this.progress > 0) {
-        x = lerp(x, this.w + this.guide.x, smooth(this.progress));
+        x = lerp(x, this.journey.origin + this.guide.x, smooth(this.progress));
         y =
           lerp(y, this.guide.y, smooth(clamp(this.progress * 1.25, 0, 1))) -
           Math.sin(Math.PI * this.progress) * this.h * 0.055;
@@ -865,7 +938,7 @@ export class PondScene {
         x > -f.length &&
         x < this.w + f.length &&
         (this.progress < 0.999 || f.id === this.selected);
-      if (!this.detail)
+      if (!this.detail && f.group.visible)
         f.animate(
           this.reduced ? 0 : f.patrol.swimTime,
           this.reduced ? 0.1 : 1,
@@ -960,12 +1033,14 @@ export class PondScene {
       hovered: this.hovered,
       progress: this.progress,
       cameraX: shift,
+      galleryOrigin: this.journey.origin,
       scroll: this.scroll,
       travelling: this.journey.moving,
       fps: this.fps,
       guide: "weave",
       ready: true,
     });
+    this.queueWarmup();
   };
 
   debug() {
@@ -984,6 +1059,7 @@ export class PondScene {
       contexts: 1,
       progress: this.progress,
       cameraX: this.journey.x,
+      galleryOrigin: this.journey.origin,
       travelling: this.journey.moving,
       guide: "weave",
       guidePosition: { ...this.guide },
@@ -994,6 +1070,10 @@ export class PondScene {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    if (this.warmJob !== null) {
+      if (this.warmIdle) window.cancelIdleCallback(this.warmJob);
+      else window.clearTimeout(this.warmJob);
+    }
     cancelAnimationFrame(this.raf);
     disposeObject(this.root);
     this.dither.dispose();

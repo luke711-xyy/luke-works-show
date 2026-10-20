@@ -8,11 +8,20 @@ import { galleryRadius } from "./motion";
 vi.mock("three", async (original) => ({
   ...(await original<typeof THREE>()),
   WebGLRenderer: class {
+    private target: THREE.WebGLRenderTarget | null = null;
     shadowMap = { enabled: false, type: 0 };
     setClearColor() {}
     setPixelRatio() {}
     setSize() {}
-    setRenderTarget() {}
+    setRenderTarget(target: THREE.WebGLRenderTarget | null) {
+      this.target = target;
+    }
+    getRenderTarget() {
+      return this.target;
+    }
+    async compileAsync(scene: THREE.Object3D) {
+      return scene;
+    }
     clear() {}
     render(scene: THREE.Scene, camera: THREE.Camera) {
       // Real WebGLRenderer updates both before drawing. Keep projection and
@@ -25,6 +34,8 @@ vi.mock("three", async (original) => ({
 }));
 
 let frame: FrameRequestCallback;
+const idleJobs = new Map<number, () => void>();
+let idleId = 0;
 
 const create = (
   page: "pond" | "works" = "pond",
@@ -36,6 +47,12 @@ const create = (
     innerWidth: width,
     innerHeight: 700,
     matchMedia: () => ({ matches: reduced }),
+    requestIdleCallback: (callback: () => void) => {
+      const id = ++idleId;
+      idleJobs.set(id, callback);
+      return id;
+    },
+    cancelIdleCallback: (id: number) => idleJobs.delete(id),
   });
   vi.stubGlobal("location", { search: "" });
   vi.stubGlobal("devicePixelRatio", 3);
@@ -60,7 +77,10 @@ const meshes = (scene: THREE.Scene) => {
   });
   return result;
 };
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  idleJobs.clear();
+  vi.unstubAllGlobals();
+});
 
 const flowers = (pond: PondScene) =>
   pond.scene.children
@@ -243,6 +263,148 @@ describe("pond flower disturbance", () => {
 });
 
 describe("mobile scene work budget", () => {
+  it("precompiles the same offscreen pass used for drawing and restores the renderer target before revealing", async () => {
+    const pond = create("works");
+    const advance = clockFor();
+    advance();
+    let resolve!: (scene: THREE.Object3D) => void;
+    let compiledTarget: THREE.WebGLRenderTarget | null = null;
+    const pending = new Promise<THREE.Object3D>((done) => {
+      resolve = done;
+    });
+    vi.spyOn(pond.renderer, "compileAsync").mockImplementation(() => {
+      compiledTarget = pond.renderer.getRenderTarget();
+      return pending;
+    });
+    const [id, job] = idleJobs.entries().next().value!;
+    idleJobs.delete(id);
+    job();
+    expect(compiledTarget).toBe(pond.dither.target);
+    expect(pond.renderer.getRenderTarget()).toBeNull();
+    const chime = pond.scene.getObjectByName("chime-hammer-head")!;
+    let root: THREE.Object3D = chime;
+    while (
+      root.parent &&
+      root.renderOrder === 60 &&
+      root.parent.renderOrder === 60
+    )
+      root = root.parent;
+    expect(root.visible).toBe(false);
+    resolve(pond.scene);
+    await pending;
+    expect(root.visible).toBe(true);
+    pond.dispose();
+  });
+  it("warms models in idle time, defers a pending warmup during travel and cancels it on disposal", () => {
+    const pond = create("pond", 1280);
+    const advance = clockFor();
+    const runIdle = () => {
+      const [id, callback] = idleJobs.entries().next().value!;
+      idleJobs.delete(id);
+      callback();
+    };
+    advance();
+    expect(Boolean(pond.scene.getObjectByName("chime-hammer-head"))).toBe(
+      false,
+    );
+    runIdle();
+    expect(Boolean(pond.scene.getObjectByName("chime-hammer-head"))).toBe(true);
+    pond.setNavigation(
+      { page: "works", selected: "lanbridge", detail: null },
+      5900,
+    );
+    runIdle();
+    expect(Boolean(pond.scene.getObjectByName("bamboo-fixed-script"))).toBe(
+      false,
+    );
+    advance(60);
+    expect(pond.debug().travelling).toBe(false);
+    expect(idleJobs.size).toBe(1);
+    pond.dispose();
+    expect(idleJobs.size).toBe(0);
+  });
+  it.each([390, 1280])(
+    "keeps complete right-edge foliage in a persistent buffer at width %s",
+    (width) => {
+      const frames: SceneFrame[] = [];
+      const pond = create("pond", width, true, (data) => frames.push(data));
+      const advance = clockFor();
+      advance();
+      const homeLeaves = pond.scene.children
+        .flatMap((p) => p.children)
+        .filter(
+          (p) =>
+            p.renderOrder >= 10 &&
+            p.renderOrder < 40 &&
+            !p.userData.galleryDecoration,
+        );
+      const right = Math.max(
+        ...homeLeaves.map((leaf) => {
+          const bounds = new THREE.Box3().setFromObject(leaf);
+          return bounds.max.x + width / 2;
+        }),
+      );
+      // The authored layout is unchanged: there really are leaves past the
+      // viewport. Their eventual boundary must lie beyond their whole extent.
+      expect(right).toBeGreaterThan(width);
+      pond.setNavigation(
+        { page: "works", selected: "mosic", detail: null },
+        0,
+        true,
+      );
+      advance();
+      expect(frames.at(-1)!.cameraX).toBeGreaterThan(right);
+      const boundary = frames.at(-1)!.cameraX;
+      pond.setNavigation(
+        { page: "pond", selected: "mosic", detail: null },
+        0,
+        true,
+      );
+      advance();
+      for (const leaf of homeLeaves)
+        leaf.traverse((part) => {
+          if (!(part instanceof THREE.Mesh)) return;
+          const materials = Array.isArray(part.material)
+            ? part.material
+            : [part.material];
+          for (const material of materials)
+            for (const plane of material.clippingPlanes ?? []) {
+              const bounds = new THREE.Box3().setFromObject(part);
+              for (const x of [bounds.min.x, bounds.max.x])
+                expect(
+                  plane.distanceToPoint(new THREE.Vector3(x, 0, 0)),
+                ).toBeGreaterThanOrEqual(0);
+            }
+        });
+      // A direct-link round trip keeps the same persistent edge, not a
+      // history-dependent width based on the currently visible leaf subset.
+      pond.setNavigation(
+        { page: "works", selected: "mosic", detail: null },
+        0,
+        true,
+      );
+      advance();
+      expect(frames.at(-1)!.cameraX).toBe(boundary);
+      pond.dispose();
+    },
+  );
+
+  it("does not construct intricate emblems inside an animated level transition", () => {
+    const pond = create("pond", 1280);
+    const advance = clockFor();
+    advance();
+    pond.setNavigation(
+      { page: "works", selected: "lanbridge", detail: null },
+      5900,
+    );
+    advance(20);
+    expect(pond.debug().travelling).toBe(true);
+    expect(Boolean(pond.scene.getObjectByName("chime-hammer-head"))).toBe(
+      false,
+    );
+    pond.dispose();
+  });
+
   it("survives a first RAF timestamp slightly before scene initialization", () => {
     const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
     try {
@@ -291,6 +453,12 @@ describe("mobile scene work budget", () => {
   it("constructs only nearby models and binds their occlusion layers before drawing", () => {
     const pond = create("works");
     frame(performance.now() + 100);
+    expect(Boolean(pond.scene.getObjectByName("chime-hammer-head"))).toBe(
+      false,
+    );
+    const [id, job] = idleJobs.entries().next().value!;
+    idleJobs.delete(id);
+    job();
     const chime = pond.scene.getObjectByName("chime-hammer-head");
     expect(Boolean(chime)).toBe(true);
     expect(chime?.renderOrder).toBe(60);

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>连续入卷性能回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #353a30;
+      color: #f3e8cb;
+      font: 13px system-ui;
+    }
+    nav {
+      display: flex;
+      gap: 12px;
+      padding: 8px;
+    }
+    button {
+      padding: 8px;
+    }
+    iframe {
+      display: block;
+      border: 0;
+      width: 1280px;
+      height: 700px;
+    }
+    pre {
+      white-space: pre-wrap;
+      padding: 12px;
+    }
+  </style>
+  <nav>
+    <button id="desktop">测量电脑冷入卷</button
+    ><button id="mobile">测量手机冷入卷</button
+    ><button id="mid">显示接缝中途</button>
+    <button id="fallback">检查运行中丢失 WebGL</button>
+  </nav>
+  <iframe title="真实作品集"></iframe>
+  <pre id="report">等待测量</pre>
+  <script type="module">
+    const iframe = document.querySelector("iframe"),
+      report = document.querySelector("#report");
+    let results = [],
+      busy = false;
+    const waitFor = async (check) => {
+      const t = performance.now();
+      while (!check()) {
+        if (performance.now() - t > 25000) throw Error("等待场景超时");
+        await new Promise((r) => setTimeout(r, 20));
+      }
+    };
+    const load = async (width) => {
+      iframe.style.width = width + "px";
+      await new Promise((r) => {
+        iframe.onload = r;
+        iframe.src = "/?seed=711";
+      });
+      await waitFor(
+        () =>
+          iframe.contentWindow.__pond &&
+          iframe.contentDocument.querySelector(".folio") &&
+          !iframe.contentDocument.body.textContent.includes(
+            "正在铺开这一池作品",
+          ),
+      );
+      return iframe.contentWindow;
+    };
+    const summary = (samples) => {
+      const a = [...samples].sort((a, b) => a - b);
+      return {
+        count: a.length,
+        p50: +(a[Math.floor(a.length * 0.5)] || 0).toFixed(2),
+        p95: +(a[Math.floor(a.length * 0.95)] || 0).toFixed(2),
+        max: +(a.at(-1) || 0).toFixed(2),
+      };
+    };
+    const show = () =>
+      (report.textContent = JSON.stringify({ busy, results }, null, 2));
+    async function run(width) {
+      if (busy) return;
+      busy = true;
+      show();
+      try {
+        const win = await load(width),
+          pond = win.__pond,
+          doc = iframe.contentDocument;
+        const frames = [],
+          intervals = [],
+          builds = [],
+          draw = [],
+          dom = [];
+        let active = false,
+          last = 0;
+        const tick = pond.tick;
+        pond.tick = (now) => {
+          const before = pond.lastFrame,
+            t = performance.now();
+          tick(now);
+          if (active && pond.lastFrame !== before)
+            frames.push(performance.now() - t);
+        };
+        const prepare = pond.buildEmblem ?? pond.prepareNearbyEmblem;
+        const prepareKey = pond.buildEmblem
+          ? "buildEmblem"
+          : "prepareNearbyEmblem";
+        pond[prepareKey] = function (...args) {
+          const before = this.emblems.length,
+            t = performance.now();
+          const out = prepare.apply(this, args);
+          if (active && this.emblems.length > before)
+            builds.push({
+              id: this.emblems.at(-1).id,
+              ms: +(performance.now() - t).toFixed(2),
+            });
+          return out;
+        };
+        const render = pond.dither.render;
+        pond.dither.render = function (...args) {
+          const t = performance.now();
+          const out = render.apply(this, args);
+          if (active) draw.push(performance.now() - t);
+          return out;
+        };
+        const callback = pond.callbacks.frame;
+        pond.callbacks.frame = (data) => {
+          const t = performance.now();
+          callback(data);
+          if (active) {
+            dom.push(performance.now() - t);
+            const now = performance.now();
+            if (last) intervals.push(now - last);
+            last = now;
+          }
+        };
+        const measure = async (name, action) => {
+          frames.length =
+            intervals.length =
+            builds.length =
+            draw.length =
+            dom.length =
+              0;
+          last = 0;
+          active = true;
+          const t = performance.now();
+          action();
+          await waitFor(() => pond.debug().travelling);
+          await waitFor(() => !pond.debug().travelling);
+          active = false;
+          results.push({
+            width,
+            name,
+            wallMs: Math.round(performance.now() - t),
+            frameCpuMs: summary(frames),
+            renderSubmissionMs: summary(draw),
+            domSyncMs: summary(dom),
+            renderedIntervalsMs: summary(intervals),
+            builds: [...builds],
+            origin: pond.journey.origin ?? width,
+          });
+          show();
+        };
+        await measure("cold-forward", () =>
+          doc.querySelectorAll(".fish-entry")[7].click(),
+        );
+        await measure("return", () =>
+          doc.querySelector(".works-toolbar button").click(),
+        );
+        await measure("warm-forward", () =>
+          doc.querySelectorAll(".fish-entry")[7].click(),
+        );
+      } catch (e) {
+        results.push({ error: String(e) });
+      } finally {
+        busy = false;
+        show();
+      }
+    }
+    document.querySelector("#fallback").onclick = async () => {
+      const win = await load(390),
+        doc = iframe.contentDocument;
+      doc
+        .querySelector("canvas")
+        .dispatchEvent(new win.Event("webglcontextlost", { cancelable: true }));
+      await waitFor(() => doc.querySelector(".folio.is-fallback"));
+      const entries = [...doc.querySelectorAll(".fish-entry")].map((el) => {
+        const r = el.getBoundingClientRect();
+        return {
+          name: el.textContent,
+          transform: win.getComputedStyle(el).transform,
+          inside:
+            r.left >= 0 && r.right <= 390 && r.top >= 0 && r.bottom <= 700,
+        };
+      });
+      results.push({
+        fallback: entries,
+        allInside: entries.every((el) => el.inside),
+      });
+      show();
+    };
+    document.querySelector("#desktop").onclick = () => run(1280);
+    document.querySelector("#mobile").onclick = () => run(390);
+    document.querySelector("#mid").onclick = async () => {
+      const win = await load(1280),
+        pond = win.__pond;
+      pond.setNavigation({ page: "works", selected: "mosic", detail: null }, 0);
+      await waitFor(() => pond.debug().cameraX > 1280 * 0.55);
+      pond.setNavigation(
+        { page: "works", selected: "mosic", detail: "mosic" },
+        0,
+      );
+    };
+  </script>
+</html>

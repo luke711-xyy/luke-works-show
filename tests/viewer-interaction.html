@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>图片查看器交互回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    nav {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      flex-wrap: wrap;
+    }
+    button {
+      min-height: 44px;
+    }
+    iframe {
+      width: 390px;
+      height: 740px;
+      border: 1px solid #89744d;
+    }
+    pre {
+      white-space: pre-wrap;
+      max-width: 100%;
+    }
+  </style>
+  <nav>
+    <button id="run">运行实际组件回归</button>
+    <button id="mobile">预览手机查看器</button>
+    <button id="desktop">预览电脑查看器</button>
+  </nav>
+  <iframe title="图片查看器实际组件"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    import React from "react";
+    import ReactDOM from "react-dom/client";
+    import ImageViewer from "/src/ImageViewer.tsx";
+    import { mediaFor } from "/src/data/projects.ts";
+
+    const frame = document.querySelector("iframe"),
+      report = document.querySelector("#report");
+    const doc = frame.contentDocument,
+      win = frame.contentWindow;
+    doc.head.innerHTML =
+      '<link rel="stylesheet" href="/src/style.css"><link rel="stylesheet" href="/src/image-viewer.css">';
+    const parentDialog = doc.createElement("dialog");
+    parentDialog.setAttribute("aria-label", "案例详情焦点回归");
+    parentDialog.innerHTML =
+      '<button id="viewer-opener">打开回归图片</button><div id="viewer-root"></div>';
+    doc.body.append(parentDialog);
+    parentDialog.showModal();
+    const opener = doc.querySelector("#viewer-opener");
+    const root = ReactDOM.createRoot(doc.querySelector("#viewer-root"));
+    let closed = 0,
+      results = [],
+      runId = 0;
+    const images = mediaFor("mosic").filter((item) => item.kind === "image");
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 40));
+    const viewer = () => doc.querySelector(".image-viewer");
+    const button = (label) => doc.querySelector(`[aria-label="${label}"]`);
+    const check = (name, pass) => {
+      results.push({ name, pass: Boolean(pass) });
+      report.textContent = JSON.stringify({ closed, results }, null, 2);
+    };
+    const open = async (width = 390, items = images) => {
+      if (viewer()) {
+        root.render(null);
+        await settle();
+      }
+      frame.style.width = `${width}px`;
+      opener.focus();
+      root.render(
+        React.createElement(ImageViewer, {
+          key: ++runId,
+          images: items,
+          initialIndex: 0,
+          title: "MOSIC",
+          close: () => {
+            closed++;
+            root.render(null);
+          },
+        }),
+      );
+      await settle();
+    };
+    opener.onclick = () => open();
+    const pointer = (type, id, x, y) =>
+      doc.querySelector(".viewer-stage")?.dispatchEvent(
+        new win.PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          pointerType: "touch",
+          pointerId: id,
+          isPrimary: id === 1,
+          button: 0,
+          clientX: x,
+          clientY: y,
+        }),
+      );
+    const swipe = async (from, to, id = 1) => {
+      pointer("pointerdown", id, from, 250);
+      pointer("pointermove", id, to, 250);
+      pointer("pointerup", id, to, 250);
+      await settle();
+    };
+    const percent = () => doc.querySelector(".viewer-percentage")?.textContent;
+    const counter = () =>
+      doc.querySelector(".viewer-position")?.textContent.replace(/\s/g, "");
+    document.querySelector("#mobile").onclick = () => open(390);
+    document.querySelector("#desktop").onclick = () => open(1280);
+    document.querySelector("#run").onclick = async () => {
+      results = [];
+      closed = 0;
+      try {
+        for (const width of [390, 1280]) {
+          await open(width);
+          check(
+            `${width}: opening focuses Close inside nested viewer`,
+            doc.activeElement === button("关闭图片"),
+          );
+          check(
+            `${width}: fit-relative100 and project image index`,
+            percent() === "100%" &&
+              counter() === `01/${String(images.length).padStart(2, "0")}` &&
+              !button("还原图片"),
+          );
+          button("放大图片")?.click();
+          await settle();
+          check(
+            `${width}: zoom and contextual reset before percentage`,
+            percent() === "125%" &&
+              button("还原图片")?.nextElementSibling?.classList.contains(
+                "viewer-percentage",
+              ),
+          );
+          const before = counter();
+          pointer("pointerdown", 1, 270, 250);
+          pointer("pointermove", 1, 90, 150);
+          pointer("pointerup", 1, 90, 150);
+          await settle();
+          check(
+            `${width}: zoomed swipe pans without navigation`,
+            counter() === before &&
+              !/translate\(0px, 0px\)/.test(
+                doc.querySelector(".viewer-image")?.style.transform || "",
+              ),
+          );
+          button("下一张图片")?.click();
+          await settle();
+          check(
+            `${width}: next available while zoomed and resets`,
+            counter()?.startsWith("02/") &&
+              percent() === "100%" &&
+              !button("还原图片"),
+          );
+          await swipe(90, 270);
+          check(
+            `${width}: baseline swipe navigates previous`,
+            counter()?.startsWith("01/"),
+          );
+          pointer("pointerdown", 1, 100, 250);
+          pointer("pointerdown", 2, 200, 250);
+          pointer("pointermove", 2, 300, 250);
+          await settle();
+          check(`${width}: pinch actually scales image`, percent() === "200%");
+          pointer("pointercancel", 2, 300, 250);
+          button("还原图片")?.click();
+          await settle();
+          await swipe(270, 90);
+          check(
+            `${width}: pointercancel recovers next gesture`,
+            counter()?.startsWith("02/"),
+          );
+          pointer("pointerdown", 1, 270, 250);
+          pointer("lostpointercapture", 1, 270, 250);
+          await swipe(90, 270);
+          check(`${width}: lostcapture recovers`, counter()?.startsWith("01/"));
+          pointer("pointerdown", 1, 270, 250);
+          win.dispatchEvent(new win.Event("blur"));
+          await swipe(270, 90);
+          check(`${width}: blur recovers`, counter()?.startsWith("02/"));
+          viewer()?.dispatchEvent(
+            new win.KeyboardEvent("keydown", {
+              bubbles: true,
+              key: "ArrowLeft",
+            }),
+          );
+          await settle();
+          check(
+            `${width}: keyboard arrow navigation`,
+            counter()?.startsWith("01/"),
+          );
+          doc.querySelector(".viewer-stage")?.dispatchEvent(
+            new win.WheelEvent("wheel", {
+              bubbles: true,
+              cancelable: true,
+              deltaY: -100,
+              clientX: 180,
+              clientY: 250,
+            }),
+          );
+          await settle();
+          check(
+            `${width}: wheel zoom`,
+            Number(percent()?.replace("%", "")) > 100,
+          );
+          for (let i = 0; i < 40; i++) button("放大图片")?.click();
+          await settle();
+          check(
+            `${width}: zoom upper bound`,
+            percent() === "800%" && button("放大图片")?.disabled,
+          );
+          button("还原图片")?.focus();
+          button("还原图片")?.click();
+          await settle();
+          check(
+            `${width}: reset centers`,
+            percent() === "100%" &&
+              /translate\(0px, 0px\)/.test(
+                doc.querySelector(".viewer-image")?.style.transform || "",
+              ),
+          );
+          check(
+            `${width}: reset preserves keyboard focus`,
+            doc.activeElement === button("放大图片"),
+          );
+          viewer()?.dispatchEvent(
+            new win.Event("cancel", { bubbles: true, cancelable: true }),
+          );
+          await settle();
+          check(`${width}: native cancel event closes viewer`, !viewer());
+          check(
+            `${width}: close restores original image opener in still-open case`,
+            parentDialog.open && doc.activeElement === opener,
+          );
+        }
+        await open(390, [
+          { ...images[0], clear: "/missing-viewer-fixture.webp" },
+        ]);
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        check("image failure has recovery", Boolean(button("重新载入图片")));
+        button("重新载入图片")?.click();
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        check(
+          "retry requests image again",
+          win.performance
+            .getEntriesByType("resource")
+            .some((entry) =>
+              entry.name.includes("missing-viewer-fixture.webp?viewer-retry=1"),
+            ),
+        );
+      } catch (error) {
+        check(String(error), false);
+      }
+      report.textContent = JSON.stringify(
+        {
+          closed,
+          results,
+          pass: results.length > 0 && results.every((item) => item.pass),
+        },
+        null,
+        2,
+      );
+    };
+  </script>
+</html>

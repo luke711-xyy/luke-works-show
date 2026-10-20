@@ -2,6 +2,15 @@
 
 本次使用实际 Chromium / Codex 内置浏览器。生产预览为 `http://127.0.0.1:5188/`。截图位于 `.impeccable/review/`，不是 AI 生成效果图。
 
+## 连续场景缓冲与缩放图集（2026-10-21）
+
+- 首页构图不变，按完整右侧叶片及扰动包络延伸隐藏世界，长卷起点、接缝、跟随锦鲤和 DOM 位移共享同一坐标。回归先观察旧实现在 390／1280px 将边界停在窗口宽度、动画帧内构造徽记，再检查完整边界、往返／resize 与飞行暂停预热；现在模型在空闲任务逐个准备，并针对实际 Bayer 离屏通道预编译后显示。
+- `tests/journey-performance.html` 测实际应用的冷入卷、返回和热入卷，记录 CPU／提交／DOM 耗时与渲染回调间隔。原始报告为 `journey-performance-before.json`／`journey-performance-after.json`；统计及“桌面回调间隔未改善”的边界见 `docs/PERFORMANCE.md`。中途实际 WebGL 截图 `continuous-foliage-midway.png` 可见右侧完整叶片，没有原窗口宽度处的直线切口。
+- 查看器以适应窗口为 100%，100%–800% 双指／滚轮／按钮缩放，条件显示还原，100% 水平滑动切图，放大后拖动平移；标题旁图片序号与案例图片顺序一致，视频不计入。纯手势测试先红后绿；`tests/viewer-interaction.html` 在实际 React 组件、390／1280px 下 36 项通过，含真实变换、加载失败重试、pinch、取消／失焦恢复、焦点与边界。触摸为合成 PointerEvent，不是真机 iOS／Android 多指认证。
+- 原生浏览器从 Worldmaker 荷叶进入详情、主动点图、125% 放大、下一张重置至 100%，Escape 只关闭图片层并把焦点还给原缩略图；控制台无 warn/error。
+- `tests/gesture-navigation.html` 全八项目图标／标题／叶内空白在手机合成触摸及电脑输入下 48 条点击链，加 4 条拖动／键盘检查，52 项全部通过。独立主动点图仍可打开查看器，不复发兼容点击穿透。报告 `gesture-transition-viewer-release.json`。
+- 独立只读复核发现并修正运行中 WebGL 丢失后的入口残留 transform、预编译输出目标不匹配；健康场景收到丢失事件后，8 个回退入口均恢复可见网格。另覆盖渲染目标立即还原、shader 就绪后显示。138 项测试（18 文件）、TypeScript、生产构建与格式检查通过；发布证据见 `docs/DEPLOYMENT.md`。
+
 ## 手机首页项目名常显（2026-10-21，本地）
 
 - 仅调整首页鱼名 CSS：639px 以下、无 hover 或粗指针设备常显；手机长名称自然换行。保留透明背景、跟鱼移动和 `pointer-events: none`，不扩大尚未显露鱼的点击范围。

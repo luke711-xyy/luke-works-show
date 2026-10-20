@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest";
 import { Journey } from "./journey";
 
 describe("one continuous home-to-gallery camera", () => {
+  it("crosses the complete offscreen foliage before entering the gallery", () => {
+    const view = new Journey(1280, false, 1800);
+    view.go("works", 0);
+    view.step(1.7);
+    expect(view.x).toBe(1800);
+    expect(view.scroll).toBe(0);
+    expect(view.progress).toBe(1);
+    view.setScroll(200);
+    expect(view.x).toBe(2000);
+    view.go("pond", 0);
+    view.step(1.7);
+    expect(view.x).toBe(0);
+  });
   it("finishes a distant level transition and its return within 1.7 seconds", () => {
     const view = new Journey(1440);
     view.go("works", 6000);

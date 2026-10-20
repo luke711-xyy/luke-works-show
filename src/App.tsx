@@ -25,6 +25,8 @@ import type { PondScene, SceneFrame } from "./scene/PondScene";
 import { galleryWheelOffset } from "./scroll";
 import { preloadImage, warmImages } from "./media-preload";
 import { isTapGesture, shouldTrackPondPointer } from "./scene/input";
+import ImageViewer from "./ImageViewer";
+import { imageSequence } from "./image-viewer-gestures";
 import {
   clamp,
   galleryCenter,
@@ -155,69 +157,6 @@ export function MediaFigure({
     </figure>
   );
 }
-function ImageViewer({
-  item,
-  title,
-  close,
-}: {
-  item: Media;
-  title: string;
-  close: () => void;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const [zoom, setZoom] = useState(false);
-  useEffect(() => {
-    ref.current?.showModal();
-    return () => ref.current?.close();
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      className="image-viewer"
-      aria-label={`${title}截图查看器`}
-      onCancel={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        close();
-      }}
-    >
-      <div className="viewer-toolbar">
-        <span>{title}</span>
-        <div className="viewer-actions">
-          <button aria-pressed={zoom} onClick={() => setZoom((v) => !v)}>
-            {zoom ? "适应窗口" : "原尺寸"}
-          </button>
-          <button
-            className="icon-button"
-            aria-label="关闭图片"
-            onClick={close}
-            autoFocus
-          >
-            <Icon name="close" />
-          </button>
-        </div>
-      </div>
-      <div
-        className={`viewer-surface ${zoom ? "is-zoomed" : ""}`}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) close();
-        }}
-      >
-        <picture>
-          {!zoom && item.mobile && (
-            <source media="(max-width: 639px)" srcSet={item.mobile.src} />
-          )}
-          <img
-            src={item.clear}
-            alt={item.caption}
-            width={item.width}
-            height={item.height}
-          />
-        </picture>
-      </div>
-    </dialog>
-  );
-}
 function ProjectDetail({
   project,
   close,
@@ -228,8 +167,15 @@ function ProjectDetail({
   outline: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [viewer, setViewer] = useState<Media | null>(null);
+  const [viewer, setViewer] = useState<number | null>(null);
   const media = mediaFor(project.id);
+  const images = imageSequence(media);
+  const imagePosition = (item: Media) =>
+    images.findIndex((image) => image.id === item.id) + 1;
+  const openImage = (item: Media) => {
+    const index = images.findIndex((image) => image.id === item.id);
+    if (index >= 0) setViewer(index);
+  };
   useEffect(() => {
     // The first image is already warm from the leaf. Only look one image
     // ahead; native lazy loading handles the rest as the visitor scrolls.
@@ -306,9 +252,9 @@ function ProjectDetail({
             <MediaFigure
               item={media[0]}
               project={project}
-              position={1}
-              total={media.length}
-              open={setViewer}
+              position={imagePosition(media[0])}
+              total={images.length}
+              open={openImage}
             />
           )}
           <div className="case-introduction">
@@ -328,22 +274,22 @@ function ProjectDetail({
                   <MediaFigure
                     item={media[1]}
                     project={project}
-                    position={2}
-                    total={media.length}
-                    open={setViewer}
+                    position={imagePosition(media[1])}
+                    total={images.length}
+                    open={openImage}
                   />
                 )}
               </div>
             ))}
           </section>
-          {media.slice(2).map((item, i) => (
+          {media.slice(2).map((item) => (
             <MediaFigure
               key={item.id}
               item={item}
               project={project}
-              position={i + 3}
-              total={media.length}
-              open={setViewer}
+              position={imagePosition(item)}
+              total={images.length}
+              open={openImage}
             />
           ))}
           <footer className="case-footer">
@@ -355,9 +301,10 @@ function ProjectDetail({
           </footer>
         </article>
       </div>
-      {viewer && (
+      {viewer !== null && (
         <ImageViewer
-          item={viewer}
+          images={images}
+          initialIndex={viewer}
           title={project.title}
           close={() => setViewer(null)}
         />
@@ -437,14 +384,23 @@ export default function App() {
   callbacks.current.pick = enter;
   useEffect(() => {
     const onFrame = (frame: SceneFrame) => {
-      root.current?.style.setProperty("--journey", `${frame.progress}`);
-      root.current?.style.setProperty("--camera-x", `${frame.cameraX}`);
+      const homePan = Math.min(frame.cameraX, frame.galleryOrigin);
+      const panelX = Math.max(0, frame.galleryOrigin - frame.cameraX);
+      const setStage = (key: string, value: string) => {
+        if (root.current && root.current.style.getPropertyValue(key) !== value)
+          root.current.style.setProperty(key, value);
+      };
+      setStage("--home-x", `${-homePan}px`);
+      setStage("--gallery-x", `${panelX}px`);
+      // The paper tiles every 512px. A bounded compositor translation has
+      // identical phase without repainting the whole viewport every frame.
+      setStage("--paper-x", `${-(frame.cameraX % 512)}px`);
       if (root.current)
         root.current.dataset.travelling = String(frame.travelling);
       if (inscription.current) {
         const pose = frame.inscription;
         // Like the fish labels, compensate for the home panel's own pan.
-        inscription.current.style.left = `${pose.x + frame.progress * innerWidth}px`;
+        inscription.current.style.left = `${pose.x + homePan}px`;
         inscription.current.style.top = `${pose.y}px`;
         inscription.current.style.setProperty(
           "--inscription-size",
@@ -474,7 +430,6 @@ export default function App() {
       initialGallerySync.current = false;
       // Sticky viewport children do not take the compositor's independent
       // native-scroll transform. Leaf, label and hit shape share this GPU frame.
-      const panelX = innerWidth * (1 - frame.progress);
       const visibleProjects = new Set(
         frame.projects.map((project) => project.id),
       );
@@ -524,8 +479,9 @@ export default function App() {
         if (b) {
           // Fish coordinates are in the viewport; the home DOM panel already
           // translates by progress * width, so do not translate labels twice.
-          b.style.left = `${f.x + frame.progress * innerWidth}px`;
-          b.style.top = `${f.y}px`;
+          b.style.left = "0px";
+          b.style.top = "0px";
+          b.style.transform = `translate3d(${f.x + homePan}px,${f.y}px,0) translate(-50%,-50%)`;
           b.dataset.revealed = String(frame.hovered === f.id);
         }
       }
@@ -599,11 +555,16 @@ export default function App() {
     document.title = nav.detail
       ? `${getProject(nav.detail).title} · Luke`
       : "Luke · 一池作品";
-    if (fallback)
+    if (fallback) {
       root.current?.style.setProperty(
-        "--journey",
-        nav.page === "works" ? "1" : "0",
+        "--home-x",
+        nav.page === "works" ? "-100vw" : "0px",
       );
+      root.current?.style.setProperty(
+        "--gallery-x",
+        nav.page === "works" ? "0px" : "100vw",
+      );
+    }
   }, [nav, fallback]);
   useEffect(() => {
     if (
@@ -875,6 +836,7 @@ export default function App() {
                   ? {
                       left: "auto",
                       top: "auto",
+                      transform: "none",
                     }
                   : undefined
               }

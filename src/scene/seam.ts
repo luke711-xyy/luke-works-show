@@ -4,8 +4,8 @@ import * as THREE from "three";
 export class PondSeam {
   readonly home = new THREE.Plane(new THREE.Vector3(-1, 0, 0));
   readonly works = new THREE.Plane(new THREE.Vector3(1, 0, 0));
-  update(width: number, cameraX: number) {
-    const boundary = width / 2 - cameraX;
+  update(width: number, cameraX: number, origin = width) {
+    const boundary = origin - width / 2 - cameraX;
     this.home.constant = boundary;
     this.works.constant = -boundary;
   }
