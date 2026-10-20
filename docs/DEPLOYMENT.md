@@ -10,6 +10,17 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 纸纹题字、头部游姿与统一项目点击发布
+
+- 运行代码提交：`e6aae4810a5cd36e1b9575934c296acec19648ca`，已推送 `luke711-xyy/luke-works-show` 的 `main`；随后单独提交本次发布记录，不改变构建产物。
+- 不变部署地址：https://9623619a.luke-works-show.pages.dev/。
+- 入口脚本 `index-CQZlQv17.js`；场景脚本 `PondScene-BRroi7od.js`；样式 `index-v31x8Ntk.css`。
+- 内容：可见纸纤维、`Luke’s Collection`、随叶移动的“徐弋洋·作品集”；同时发布此前本地的自然头部摆动及电脑/手机统一图标点击、同帧标题绑定和 History 写入失败降级。此前已发布但尚未推 GitHub 的原彩图片、鱼鳍、花叶及性能更新也同步源码。
+- 117 项测试（17 文件）、TypeScript、生产构建和只读代码复核通过。390/768/1280px 布局检查通过；48 条全项目合成交互通过，最大标题投影误差约 0.111 CSS px。未把尺寸模拟宣称为真机性能认证。
+- 正式域名、平台域名和不变部署域名的首页、MOSIC 深链接及 Meet Countdown 查询链接均为 HTTP 200 并引用新入口；三个域名的 7 个 JS/CSS、带 `v=2` 的纸纹与字体均与本地构建逐字节一致。
+- 正式域名 48 个媒体 URL、24 个源素材哈希、23 张清晰原图像素一致性复核通过；23 张手机原彩 WebP 的响应内容哈希、类型和 immutable 缓存头通过。
+- 实际正式域名浏览器确认首页题字、增强纸纹、英文长卷标题，从锦鲤进入 Moce Designer，点击皮影图标立即打开详情。检查期间应用无 warn/error；未修改主域名、`www`、DNS 或安全策略。
+
 ## 2026-10-21 鱼鳍细化与累计本地更新发布
 
 - 不变部署地址：https://cbb1f613.luke-works-show.pages.dev/。

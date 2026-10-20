@@ -22,4 +22,4 @@
 
 重新生成手机版资源：`npm run assets:responsive`；完整素材准备 `npm run assets` 也会同步生成。新文件在 `public/media-mobile/`，内容哈希用于更新失效，版本信息在 `src/data/media-responsive.generated.json`。
 
-缓存头已随 2026-10-21 的鱼鳍细化版本发布，发布证据见 `docs/DEPLOYMENT.md`；后续导航及题字更新仍需各自完成发布验收。实际手机、移动网络及重复访问条件下的性能仍需实机复测，不以桌面尺寸模拟代替。
+缓存头已随 2026-10-21 的鱼鳍细化版本发布；后续导航及题字更新也已随 `9623619a` 发布，证据见 `docs/DEPLOYMENT.md`。实际手机、移动网络及重复访问条件下的性能仍需实机复测，不以桌面尺寸模拟代替。
