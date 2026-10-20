@@ -904,7 +904,7 @@ export default function App() {
             <Icon name="back" />
             <span>回到荷塘</span>
           </button>
-          <span className="works-title">Luke’s Collection</span>
+          <span className="works-title">Luke's Collection</span>
           <a
             className="github-link"
             href="https://github.com/luke711-xyy"

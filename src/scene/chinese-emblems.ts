@@ -541,7 +541,9 @@ export function pavilion(group: THREE.Group): Animate {
   gardenRock(group, -62, 9);
   gardenRock(group, 64, 18, true);
   return (time, reduced = false) => {
-    const phase = (time * 2) % 18;
+    // Trim only the empty interval (1.4s -> 0.7s). The active phase still
+    // advances at 2x, preserving every block's build/dissolve speed.
+    const phase = ((time * 2) % 16.6) + 0.25;
     building.visible = reduced || (phase > 0.5 && phase < 15.7);
     voxels.forEach((v, i) => {
       const order = i / voxels.length;

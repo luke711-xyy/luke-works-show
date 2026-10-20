@@ -2,6 +2,18 @@
 
 本次使用实际 Chromium / Codex 内置浏览器。生产预览为 `http://127.0.0.1:5188/`。截图位于 `.impeccable/review/`，不是 AI 生成效果图。
 
+## 手机首页项目名常显（2026-10-21，本地）
+
+- 仅调整首页鱼名 CSS：639px 以下、无 hover 或粗指针设备常显；手机长名称自然换行。保留透明背景、跟鱼移动和 `pointer-events: none`，不扩大尚未显露鱼的点击范围。
+- 实际 React 应用 390×700 iframe：修复前 8 个未显露名称的 opacity 均为 0，修复后均为 1；1280px 细指针桌面仍默认隐藏 8 个，聚焦 MOSIC 后仅其名称显示。证据为 `fish-labels-before.json`、`fish-labels-mobile.json` 和 `fish-labels-mobile.jpg`。这是 Chromium 手机尺寸验证，不是真机 Safari 认证。
+- 118 项测试、TypeScript、生产构建、CSS 格式及差异检查通过。本轮未提交、推送或部署。
+
+## 凉亭空场停留减半（2026-10-21，本地）
+
+- 只裁去完全消失后的空场阶段：从 1.4 秒缩至 0.7 秒，循环由 9 秒缩至 8.3 秒；活动阶段仍使用 2× 相位推进，搭建、消散、完整展示及假山不变。
+- 先通过真实实例矩阵与可见性检测，以二分法测得旧空场为约 1.4000004 秒，观察新增 0.7 秒回归失败；修复后连续两轮检查通过。更新原整亭回归的空场采样点，118 项测试、TypeScript 和生产构建通过。
+- 实际 WebGL+Bayer 检查 8.00 秒空场、9.00 秒已重建；本地长卷保持可浏览。未提交、推送或重新部署。
+
 ## 手机入口误开图片查看器（2026-10-21）
 
 - 修复前，在实际 React 应用的 390×700 iframe 中按 `pointerdown → pointerup → click` 顺序复现：`pointerup` 已打开详情，随后模拟浏览器将兼容点击重新命中到新出现的图片按钮，图片查看器误开。失败报告 `gesture-before.json` 明确为 `openedOnPointerUp=true`、`unwantedViewer=true`。

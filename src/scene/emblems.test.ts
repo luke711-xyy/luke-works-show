@@ -120,6 +120,45 @@ describe("project emblem motion", () => {
     dispose(emblem.group);
   });
 
+  it("holds the fully absent pavilion for 0.7 seconds before rebuilding", () => {
+    const emblem = createEmblem("worldmaker", 100);
+    const building = emblem.group.getObjectByName(
+      "pavilion-building-voxels",
+    ) as THREE.InstancedMesh;
+    const absentAt = (time: number) => {
+      emblem.animate(time);
+      if (!building.visible) return true;
+      for (let i = 0; i < building.count; i++) {
+        const offset = i * 16;
+        if (
+          Math.hypot(
+            ...building.instanceMatrix.array.slice(offset, offset + 3),
+          ) > 0
+        )
+          return false;
+      }
+      return true;
+    };
+    const boundary = (lo: number, hi: number, absentBefore: boolean) => {
+      for (let i = 0; i < 20; i++) {
+        const mid = (lo + hi) / 2;
+        if (absentAt(mid) === absentBefore) lo = mid;
+        else hi = mid;
+      }
+      return (lo + hi) / 2;
+    };
+    expect(absentAt(7.6)).toBe(false);
+    expect(absentAt(8)).toBe(true);
+    expect(absentAt(9.5)).toBe(false);
+    const gone = boundary(7.6, 8, false);
+    const returned = boundary(8, 9.5, true);
+    expect(returned - gone).toBeCloseTo(0.7, 4);
+    // The same full-absence interval must persist over the next loop.
+    expect(absentAt(gone + 8.3 + 0.01)).toBe(true);
+    expect(absentAt(returned + 8.3 + 0.01)).toBe(false);
+    dispose(emblem.group);
+  });
+
   it("removes and rebuilds every pavilion block while the two garden rocks stay in place", () => {
     const emblem = createEmblem("worldmaker", 100);
     const building = emblem.group.getObjectByName(
@@ -148,7 +187,7 @@ describe("project emblem motion", () => {
       };
     };
     const built = pose(4),
-      gone = pose(8.5),
+      gone = pose(8),
       next = pose(13);
     expect(building.count).toBeGreaterThan(1500);
     expect(built.scales.every((s) => Math.abs(s - 1) < 0.00001)).toBe(true);

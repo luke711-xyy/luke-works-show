@@ -256,6 +256,12 @@ svg {
   border-radius: 50%;
   pointer-events: auto;
 }
+@media (max-width: 639px), (hover: none), (pointer: coarse) {
+  .fish-entry .fish-name {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
 .works-toolbar,
 .works-footer {
   position: absolute;
@@ -904,6 +910,13 @@ svg {
   }
   .fish-name {
     font-size: 12px;
+    width: max-content;
+    max-width: 92px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+    text-align: center;
+    line-height: 1.25;
   }
   .works-toolbar,
   .works-footer {
