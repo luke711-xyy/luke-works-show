@@ -10,6 +10,16 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 手机轻点误开图片查看器修复
+
+- 运行代码提交：`04ab1c01894f80cfad1358fcd30135702ea07b21`，已推送 GitHub `main`；发布记录另作纯文档提交。
+- 不变部署地址：https://ba3b5faf.luke-works-show.pages.dev/。
+- 入口 `index-CKai7Ual.js`、场景 `PondScene-CMZ5jF0Y.js`；没有调整视觉、图片、滚动或现有性能预算。
+- 项目展开从提前的 `pointerup` 移到统一最终 `click`：松手后命中界面保持不变，避免兼容点击重新命中刚出现的图片按钮。图标、叶内空白、标题、键盘、拖动取消与后续主动点图保留。
+- 先以实际应用合成触摸事件复现旧实现误开，再通过 48 条完整项目点击链、4 条拖动/键盘检查与 42 次主动点图检查；117 项单元测试、TypeScript、生产构建、格式与只读代码复核通过。触摸回归是桌面 Chromium 合成事件，不是实际手机 Safari 认证。
+- 正式域名、平台域名、不变部署域名均通过首页及两条深链接检查（每个域名 3 条 HTTP 200/新入口），7 个 JS/CSS 与本地构建逐字节相同。24 个源素材哈希、23 张清晰图像素一致性、48 个线上媒体 URL 校验通过。
+- 实际正式域名浏览器确认点击 MOSIC 只打开带标题、摘要、正文的详情，`.image-viewer[open]` 数量为 0；无 warn/error。证据 `.impeccable/review/gesture-fixed-live.png`，不随站点公开发布。
+
 ## 2026-10-21 纸纹题字、头部游姿与统一项目点击发布
 
 - 运行代码提交：`e6aae4810a5cd36e1b9575934c296acec19648ca`，已推送 `luke711-xyy/luke-works-show` 的 `main`；随后单独提交本次发布记录，不改变构建产物。
