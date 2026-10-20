@@ -150,6 +150,7 @@ export const projects: Project[] = [
       },
     ],
     repo: "https://github.com/luke711-xyy/moce-worldmaker",
+    demo: "https://moce.luke-xu.asia/",
     cover: "SCR-20261019-pdbk.png",
   },
   {

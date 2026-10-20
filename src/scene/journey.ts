@@ -37,11 +37,12 @@ export class Journey {
     this.from = this.x;
     this.target = target;
     this.elapsed = 0;
-    this.duration = clamp(
-      0.7 + Math.log2(1 + Math.abs(target - this.x) / this.width) * 0.36,
-      0.7,
-      1.65,
-    );
+    const distance = Math.abs(target - this.x) / this.width;
+    const duration = clamp(0.7 + Math.log2(1 + distance) * 0.36, 0.7, 1.65);
+    // Keep the same eased world-space path, with diminishing extra speed
+    // for each additional viewport beyond the base 1.5x pace.
+    const speed = 1.5 * (1 + 0.35 * Math.log2(Math.max(1, distance)));
+    this.duration = duration / speed;
   }
   step(dt: number) {
     if (!this.moving) return;

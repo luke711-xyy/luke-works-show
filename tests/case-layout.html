@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>案例图文排版回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    nav {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      flex-wrap: wrap;
+    }
+    button,
+    select {
+      min-height: 44px;
+    }
+    iframe {
+      display: block;
+      width: 1280px;
+      height: 920px;
+      border: 0;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
+  <nav>
+    <button id="run">检查所有项目排版</button>
+    <select id="project" aria-label="预览项目"></select>
+    <button id="selected">检查当前项目排版</button>
+    <button id="desktop">电脑预览</button>
+    <button id="tablet">平板预览</button>
+    <button id="edge">640px 断点预览</button>
+    <button id="mobile">手机预览</button>
+    <button id="body">查看图文正文</button>
+    <button id="inset">查看嵌入段落</button>
+  </nav>
+  <iframe title="实际项目详情"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    import { projects, mediaFor } from "/src/data/projects.ts";
+    const frame = document.querySelector("iframe");
+    const report = document.querySelector("#report");
+    const select = document.querySelector("select");
+    let results = [];
+    for (const project of projects) {
+      select.add(new Option(project.title, project.id));
+    }
+    select.value = "meet-countdown";
+    const waitFor = async (predicate) => {
+      for (let i = 0; i < 200; i++) {
+        if (predicate()) return;
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+      throw new Error("项目详情未能准备好");
+    };
+    const open = async (id, width) => {
+      frame.style.width = `${width}px`;
+      frame.src = `/works/${id}`;
+      await new Promise((resolve) => (frame.onload = resolve));
+      await waitFor(() =>
+        frame.contentDocument.querySelector(".project-detail[open]"),
+      );
+      await frame.contentDocument.fonts.ready;
+      // Geometry depends on dimensions in the manifest, not on downloading lazy images.
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    };
+    const check = (name, pass, detail) => {
+      results.push({ name, pass: Boolean(pass), ...(detail && { detail }) });
+      report.textContent = JSON.stringify({ done: false, results }, null, 2);
+    };
+    document.querySelector("#desktop").onclick = () => open(select.value, 1280);
+    document.querySelector("#tablet").onclick = () => open(select.value, 768);
+    document.querySelector("#edge").onclick = () => open(select.value, 640);
+    document.querySelector("#mobile").onclick = () => open(select.value, 390);
+    document.querySelector("#body").onclick = () => {
+      const doc = frame.contentDocument;
+      doc.querySelector(".case-scroll").scrollTop =
+        doc.querySelector(".case-heading").offsetHeight + 48;
+    };
+    document.querySelector("#inset").onclick = () => {
+      const doc = frame.contentDocument;
+      const chapter = doc
+        .querySelector(".case-chapter:not(.media-wide) > .decision")
+        ?.closest(".case-chapter");
+      const scroll = doc.querySelector(".case-scroll");
+      if (chapter)
+        scroll.scrollTop +=
+          chapter.getBoundingClientRect().top -
+          scroll.getBoundingClientRect().top -
+          96;
+    };
+    const run = async (
+      projectSet = projects,
+      widths = [1280, 768, 640, 390, 320],
+    ) => {
+      results = [];
+      try {
+        for (const width of widths) {
+          for (const project of projectSet) {
+            await open(project.id, width);
+            const doc = frame.contentDocument,
+              win = frame.contentWindow;
+            const content = doc.querySelector(".case-content");
+            const figures = [...doc.querySelectorAll(".case-media")];
+            const media = mediaFor(project.id);
+            const prefix = `${width}/${project.id}`;
+            if (project.id === "worldmaker") {
+              check(
+                `${prefix}: opens published work while retaining source link`,
+                doc
+                  .querySelector(
+                    '.case-links a[href="https://moce.luke-xu.asia/"]',
+                  )
+                  ?.textContent.includes("打开作品") &&
+                  doc
+                    .querySelector(
+                      '.case-links a[href="https://github.com/luke711-xyy/moce-worldmaker"]',
+                    )
+                    ?.textContent.includes("查看源码"),
+              );
+            }
+            const transparent = [
+              ...doc.querySelectorAll(
+                ".image-open, .case-media img, .case-media video",
+              ),
+            ].every(
+              (el) =>
+                win.getComputedStyle(el).backgroundColor === "rgba(0, 0, 0, 0)",
+            );
+            check(`${prefix}: only paper outside original media`, transparent);
+            check(
+              `${prefix}: all captions and original image order retained`,
+              figures.length === media.length &&
+                figures.every(
+                  (figure, i) =>
+                    figure.querySelector(".media-caption").textContent ===
+                      media[i].caption &&
+                    (media[i].kind !== "image" ||
+                      figure.querySelector("img").getAttribute("src") ===
+                        media[i].clear),
+                ),
+            );
+            check(
+              `${prefix}: every paragraph and decision retained once`,
+              [
+                ...project.introduction,
+                ...project.decisions.map((d) => d.text),
+              ].every(
+                (text) =>
+                  [...content.querySelectorAll("p")].filter(
+                    (p) => p.textContent === text,
+                  ).length === 1,
+              ),
+            );
+            const decisionGroups = [...doc.querySelectorAll(".decision")].map(
+              (decision) => {
+                const heading = decision.querySelector("h3");
+                const paragraph = decision.querySelector("p");
+                const text = doc.createRange();
+                text.selectNodeContents(paragraph);
+                const gap =
+                  text.getClientRects()[0].top -
+                  heading.getBoundingClientRect().bottom;
+                return {
+                  title: heading.textContent,
+                  gap,
+                  expectedGap: parseFloat(
+                    win.getComputedStyle(heading).marginBottom,
+                  ),
+                  lineHeight: parseFloat(
+                    win.getComputedStyle(paragraph).lineHeight,
+                  ),
+                };
+              },
+            );
+            check(
+              `${prefix}: body stays directly below its heading, not below the adjacent image`,
+              decisionGroups.every(
+                ({ gap, expectedGap, lineHeight }) =>
+                  gap >= -1 && gap <= expectedGap + lineHeight,
+              ),
+              decisionGroups,
+            );
+            if (project.id === "lanbridge") {
+              const paragraphs = [...doc.querySelectorAll(".case-story p")];
+              check(
+                `${prefix}: paragraph lines stay on one left edge`,
+                paragraphs.every((paragraph) => {
+                  const range = doc.createRange();
+                  range.selectNodeContents(paragraph);
+                  const lines = [...range.getClientRects()];
+                  return lines.every(
+                    (line) => Math.abs(line.left - lines[0].left) < 1,
+                  );
+                }),
+              );
+              if (width >= 1120) {
+                const image = figures[0]
+                  .querySelector("img")
+                  .getBoundingClientRect();
+                const textBlocks = [
+                  ...doc.querySelectorAll(".case-introduction, .decision"),
+                ].map((element) => element.getBoundingClientRect());
+                const textHeight = textBlocks.at(-1).bottom - textBlocks[0].top;
+                check(
+                  `${prefix}: enlarged image balances the complete right text column`,
+                  image.width >= 400 &&
+                    image.height / textHeight >= 0.85 &&
+                    image.height / textHeight <= 1.15 &&
+                    textBlocks.every(
+                      (box) =>
+                        box.left >= image.right + 24 &&
+                        Math.abs(box.left - textBlocks[0].left) < 1,
+                    ),
+                  {
+                    imageWidth: image.width,
+                    imageHeight: image.height,
+                    textHeight,
+                    textLeftEdges: textBlocks.map((box) => box.left),
+                  },
+                );
+              }
+            }
+            check(
+              `${prefix}: no horizontal reading overflow`,
+              doc.querySelector(".case-scroll").scrollWidth <= width + 1 &&
+                figures.every(
+                  (el) =>
+                    el.getBoundingClientRect().left >= 0 &&
+                    el.getBoundingClientRect().right <= width + 1,
+                ),
+            );
+            const images = [...doc.querySelectorAll(".case-media img")];
+            check(
+              `${prefix}: image boxes preserve natural aspect without letterboxing`,
+              images.every((img) => {
+                const rect = img.getBoundingClientRect();
+                return (
+                  Math.abs(
+                    rect.width / rect.height -
+                      Number(img.getAttribute("width")) /
+                        Number(img.getAttribute("height")),
+                  ) < 0.015
+                );
+              }),
+            );
+            if (width >= 768 && media[0]?.width < media[0]?.height) {
+              const image = figures[0].getBoundingClientRect();
+              const intro = doc
+                .querySelector(".case-introduction")
+                .getBoundingClientRect();
+              check(
+                `${prefix}: portrait shares a reading row with introduction`,
+                image.width < content.getBoundingClientRect().width * 0.55 &&
+                  intro.top < image.bottom &&
+                  intro.bottom > image.top &&
+                  (intro.left >= image.right - 1 ||
+                    intro.right <= image.left + 1),
+              );
+            }
+            if (width >= 768 && project.id === "mosic") {
+              check(
+                `${prefix}: landscapes include embedded rather than all full-row images`,
+                figures.some(
+                  (el) =>
+                    el.getBoundingClientRect().width <
+                    content.getBoundingClientRect().width * 0.8,
+                ),
+              );
+            }
+            const imageButtons = [...doc.querySelectorAll(".image-open")];
+            if (imageButtons.length) {
+              imageButtons.at(-1).click();
+              await waitFor(() => doc.querySelector(".image-viewer[open]"));
+              const count = String(imageButtons.length).padStart(2, "0");
+              check(
+                `${prefix}: embedded image opens correct viewer position at 100%`,
+                doc
+                  .querySelector(".viewer-position")
+                  .textContent.replace(/\s/g, "") === `${count}/${count}` &&
+                  doc.querySelector(".viewer-percentage").textContent ===
+                    "100%",
+              );
+              doc.querySelector('[aria-label="关闭图片"]').click();
+              await waitFor(() => !doc.querySelector(".image-viewer"));
+            }
+          }
+        }
+        report.textContent = JSON.stringify(
+          {
+            done: true,
+            passed: results.filter((r) => r.pass).length,
+            total: results.length,
+            results,
+          },
+          null,
+          2,
+        );
+      } catch (error) {
+        report.textContent = JSON.stringify(
+          { done: true, error: String(error), results },
+          null,
+          2,
+        );
+      }
+    };
+    document.querySelector("#run").onclick = () => run();
+    document.querySelector("#selected").onclick = () =>
+      run(
+        projects.filter((project) => project.id === select.value),
+        [1440, 1280, 1120, 1024, 768, 640, 390, 320],
+      );
+    await open(select.value, 1280);
+  </script>
+</html>

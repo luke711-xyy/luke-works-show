@@ -42,11 +42,14 @@ const create = (
   width = 390,
   reduced = false,
   onFrame: (data: SceneFrame) => void = () => {},
+  coarse = false,
 ) => {
   vi.stubGlobal("window", {
     innerWidth: width,
     innerHeight: 700,
-    matchMedia: () => ({ matches: reduced }),
+    matchMedia: (query: string) => ({
+      matches: query === "(prefers-reduced-motion: reduce)" ? reduced : coarse,
+    }),
     requestIdleCallback: (callback: () => void) => {
       const id = ++idleId;
       idleJobs.set(id, callback);
@@ -102,6 +105,156 @@ const clockFor = () => {
     for (let i = 0; i < count; i++) frame((now += 34));
   };
 };
+
+describe("home fish body exposure", () => {
+  it.each([
+    { stage: "open", flower: 0, x: 122, y: 182, angle: 0 },
+    { stage: "bud", flower: 3, x: 150, y: 138, angle: Math.PI / 2 },
+  ])(
+    "does not treat empty stem/head bounding-box corners as opaque for $stage flowers",
+    ({ flower: flowerIndex, x, y, angle }) => {
+      const frames: SceneFrame[] = [];
+      const pond = create("pond", 390, true, (data) => frames.push(data));
+      // Place the real generated geometry at the reported regression poses.
+      // Test-only layout access stays here, out of the production scene API.
+      const layout = pond as unknown as {
+        leaves: { base: { x: number; y: number } }[];
+        flowers: {
+          base: { x: number; y: number };
+          object: THREE.Group;
+        }[];
+        fish: {
+          body: THREE.Mesh;
+          patrol: { x: number; y: number; angle: number };
+        }[];
+      };
+      for (const leaf of layout.leaves) leaf.base.x = -10000;
+      for (const flower of layout.flowers) flower.base.x = -10000;
+      const flower = layout.flowers[flowerIndex];
+      flower.base = { x: 150, y: 150 };
+      const koi = layout.fish[0];
+      Object.assign(koi.patrol, { x, y, angle });
+      clockFor()();
+
+      // Independent reference: ray-test actual rendered body/flower triangles,
+      // not the exposure estimator's polygons, ellipse, or sample positions.
+      const ray = new THREE.Raycaster(),
+        ndc = new THREE.Vector2();
+      let bodyPixels = 0,
+        exposedPixels = 0;
+      for (let px = x - 30; px <= x + 30; px += 2)
+        for (let py = y - 30; py <= y + 30; py += 2) {
+          ray.setFromCamera(
+            ndc.set((px / 390) * 2 - 1, 1 - (py / 700) * 2),
+            pond.camera,
+          );
+          if (!ray.intersectObject(koi.body).length) continue;
+          bodyPixels++;
+          if (!ray.intersectObject(flower.object, true).length) exposedPixels++;
+        }
+      expect(bodyPixels).toBeGreaterThan(30);
+      expect(exposedPixels / bodyPixels).toBeGreaterThan(0.75);
+      expect(frames.at(-1)!.fish[0].exposure).toBeGreaterThan(1 / 3);
+      pond.dispose();
+    },
+  );
+
+  it("reports finite body exposure and follows the rendered home leaves", () => {
+    const frames: SceneFrame[] = [];
+    const pond = create("pond", 390, true, (data) => frames.push(data));
+    const advance = clockFor();
+    advance();
+    // Removing the exposure field, or emitting an unbounded value, must fail
+    // before the fixture changes any foliage geometry.
+    for (const fish of frames.at(-1)!.fish) {
+      expect(Number.isFinite(fish.exposure)).toBe(true);
+      expect(fish.exposure).toBeGreaterThanOrEqual(0);
+      expect(fish.exposure).toBeLessThanOrEqual(1);
+    }
+    const homeFoliage = pond.scene.children
+      .flatMap((part) => part.children)
+      .filter(
+        (part) =>
+          part.renderOrder >= 10 &&
+          !part.userData.galleryDecoration &&
+          (part.renderOrder < 40 || part.renderOrder >= 80),
+      );
+    homeFoliage.forEach((part) => part.scale.setScalar(0));
+    advance();
+    expect(frames.at(-1)!.fish.every((fish) => fish.exposure === 1)).toBe(true);
+    homeFoliage
+      .filter((part) => part.renderOrder < 40)
+      .forEach((part) => part.scale.setScalar(8));
+    advance();
+    expect(frames.at(-1)!.fish.every((fish) => fish.exposure === 0)).toBe(true);
+    pond.dispose();
+  });
+
+  it("keeps a fish covered by a raised home bloom hidden when the leaves part", () => {
+    const frames: SceneFrame[] = [];
+    const pond = create("pond", 390, true, (data) => frames.push(data));
+    const advance = clockFor();
+    advance();
+    const rootParts = pond.scene.children.flatMap((part) => part.children);
+    rootParts
+      .filter((part) => part.renderOrder >= 10 && part.renderOrder < 40)
+      .forEach((part) => part.scale.setScalar(0));
+    flowers(pond).forEach((part) => part.scale.setScalar(0));
+    advance();
+    expect(frames.at(-1)!.fish[0].exposure).toBe(1);
+    const bloom = flowers(pond)[0];
+    bloom.scale.setScalar(8);
+    advance();
+    expect(frames.at(-1)!.fish[0].exposure).toBe(0);
+    bloom.scale.setScalar(0);
+    advance();
+    expect(frames.at(-1)!.fish[0].exposure).toBe(1);
+    pond.dispose();
+  });
+
+  it.each([
+    { width: 390, coarse: false, exposure: 1 },
+    { width: 820, coarse: true, exposure: 1 },
+    { width: 1280, coarse: false, exposure: 0 },
+  ])(
+    "measures mobile-label consumers at width $width and coarse $coarse only at home",
+    ({ width, coarse, exposure }) => {
+      const frames: SceneFrame[] = [];
+      const pond = create(
+        "pond",
+        width,
+        true,
+        (data) => frames.push(data),
+        coarse,
+      );
+      const advance = clockFor();
+      advance();
+      pond.scene.children
+        .flatMap((part) => part.children)
+        .filter(
+          (part) =>
+            !part.userData.galleryDecoration &&
+            part.renderOrder >= 10 &&
+            (part.renderOrder < 40 || part.renderOrder >= 80),
+        )
+        .forEach((part) => part.scale.setScalar(0));
+      advance();
+      expect(
+        frames.at(-1)!.fish.every((fish) => fish.exposure === exposure),
+      ).toBe(true);
+      pond.setNavigation(
+        { page: "works", selected: "mosic", detail: null },
+        0,
+        true,
+      );
+      advance();
+      expect(frames.at(-1)!.fish.every((fish) => fish.exposure === 0)).toBe(
+        true,
+      );
+      pond.dispose();
+    },
+  );
+});
 
 describe("home leaf inscription", () => {
   it.each([390, 1280])("follows its leaf when parted at width %s", (width) => {
@@ -397,7 +550,8 @@ describe("mobile scene work budget", () => {
       { page: "works", selected: "lanbridge", detail: null },
       5900,
     );
-    advance(20);
+    // Sample the same in-flight phase after the approximately 2.8x speedup.
+    advance(7);
     expect(pond.debug().travelling).toBe(true);
     expect(Boolean(pond.scene.getObjectByName("chime-hammer-head"))).toBe(
       false,

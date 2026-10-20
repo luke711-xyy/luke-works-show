@@ -43,15 +43,14 @@
 .extended-viewer button:disabled {
   color: #8f927b;
   opacity: 0.55;
-  cursor: default;
+  cursor: var(--cursor-default, default);
 }
 .extended-viewer button:hover:not(:disabled) {
   color: #fff2ce;
   background: #f2e7c910;
 }
 .extended-viewer button:focus-visible {
-  outline: 2px solid #eaddbb;
-  outline-offset: 3px;
+  box-shadow: inset 0 -1px 0 #eaddbb;
 }
 .extended-viewer .viewer-icon {
   width: 44px;
@@ -103,10 +102,10 @@
   -webkit-user-select: none;
 }
 .extended-viewer .viewer-stage.is-zoomed {
-  cursor: grab;
+  cursor: var(--cursor-action, grab);
 }
 .extended-viewer .viewer-stage.is-zoomed.is-dragging {
-  cursor: grabbing;
+  cursor: var(--cursor-action, grabbing);
 }
 .extended-viewer .viewer-image {
   position: absolute;

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>无紫框焦点回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    nav {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+    }
+    button {
+      min-height: 44px;
+    }
+    iframe {
+      display: block;
+      width: 1280px;
+      height: 700px;
+      border: 0;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
+  <nav>
+    <button id="run">检查刷新与全部焦点样式</button>
+    <button id="preview">预览详情关闭按钮</button>
+  </nav>
+  <iframe title="真实焦点样式"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    const frame = document.querySelector("iframe"),
+      report = document.querySelector("#report");
+    let results = [];
+    const pause = () => new Promise((resolve) => setTimeout(resolve, 40));
+    const waitFor = async (test) => {
+      for (let i = 0; i < 300; i++) {
+        if (test()) return;
+        await pause();
+      }
+      throw Error("等待真实界面超时");
+    };
+    const check = (name, pass, detail) => {
+      results.push({ name, pass: Boolean(pass), ...(detail && { detail }) });
+      report.textContent = JSON.stringify({ done: false, results }, null, 2);
+    };
+    const load = async (width = 1280, path = "/works/worldmaker") => {
+      frame.style.width = `${width}px`;
+      frame.src = path;
+      await new Promise((resolve) => (frame.onload = resolve));
+      await waitFor(() =>
+        frame.contentDocument.querySelector(".project-detail[open]"),
+      );
+    };
+    const verifyFocused = (label, doc, target) => {
+      target.focus({ preventScroll: true });
+      const css = doc.defaultView.getComputedStyle(target);
+      check(
+        `${label}: focus is retained without a rectangular outline`,
+        doc.activeElement === target && css.outlineStyle === "none",
+        { outline: css.outline, shadow: css.boxShadow },
+      );
+    };
+    document.querySelector("#preview").onclick = () => load();
+    document.querySelector("#run").onclick = async () => {
+      results = [];
+      try {
+        for (const width of [390, 1280]) {
+          await load(width);
+          let doc = frame.contentDocument,
+            win = frame.contentWindow;
+          const close = doc.querySelector('[aria-label="合上这一叶"]');
+          verifyFocused(`${width}/refresh close`, doc, close);
+          check(
+            `${width}: close retains a visible non-purple focus cue`,
+            win.getComputedStyle(close).boxShadow !== "none" &&
+              !win.getComputedStyle(close).boxShadow.includes("141, 102, 124"),
+          );
+          for (const link of doc.querySelectorAll(".case-links a"))
+            verifyFocused(
+              `${width}/detail ${link.textContent.trim()}`,
+              doc,
+              link,
+            );
+          const image = doc.querySelector(".image-open");
+          verifyFocused(`${width}/image entry`, doc, image);
+          image.click();
+          await waitFor(() => doc.querySelector(".image-viewer[open]"));
+          doc.querySelector('[aria-label="放大图片"]').click();
+          await pause();
+          for (const button of doc.querySelectorAll(
+            ".image-viewer button:not(:disabled)",
+          ))
+            verifyFocused(
+              `${width}/viewer ${button.getAttribute("aria-label")}`,
+              doc,
+              button,
+            );
+          doc.querySelector('[aria-label="关闭图片"]').click();
+          await pause();
+          check(
+            `${width}: image close restores focus to original image`,
+            doc.activeElement === image,
+          );
+          doc.querySelector('[aria-label="合上这一叶"]').click();
+          await pause();
+          await waitFor(() => win.__pond);
+          let projectLeaf;
+          await waitFor(() => {
+            projectLeaf = [...doc.querySelectorAll(".project-leaf")].find(
+              (leaf) => win.getComputedStyle(leaf).visibility === "visible",
+            );
+            return projectLeaf;
+          });
+          verifyFocused(`${width}/project leaf`, doc, projectLeaf);
+          check(
+            `${width}: project leaf keeps its title underline without a box`,
+            win.getComputedStyle(projectLeaf).boxShadow === "none" &&
+              win.getComputedStyle(
+                projectLeaf.querySelector(".project-leaf-title"),
+                "::after",
+              ).borderBottomStyle === "solid",
+          );
+          for (const button of doc.querySelectorAll(
+            ".works-toolbar button, .gallery-progress button, .gallery-arrows button:not(:disabled)",
+          ))
+            verifyFocused(
+              `${width}/gallery ${button.getAttribute("aria-label") || button.textContent.trim()}`,
+              doc,
+              button,
+            );
+          doc.querySelector(".works-toolbar button").click();
+          await waitFor(() => win.__pond.debug().progress === 0);
+          const fish = doc.querySelector(".fish-entry");
+          fish.focus({ preventScroll: true });
+          await pause();
+          const fishStyle = win.getComputedStyle(fish),
+            nameStyle = win.getComputedStyle(fish.querySelector(".fish-name"));
+          check(
+            `${width}: fish focus uses readable name cue rather than purple ellipse`,
+            fishStyle.outlineStyle === "none" &&
+              nameStyle.textDecorationLine.includes("underline"),
+          );
+          doc
+            .querySelector("canvas")
+            .dispatchEvent(
+              new win.Event("webglcontextlost", { cancelable: true }),
+            );
+          await waitFor(() => doc.querySelector(".folio.is-fallback"));
+          verifyFocused(
+            `${width}/fallback entry`,
+            doc,
+            doc.querySelector(".fish-entry"),
+          );
+          check(
+            `${width}: fallback names still have keyboard focus cue`,
+            win
+              .getComputedStyle(doc.querySelector(".fish-name"))
+              .textDecorationLine.includes("underline"),
+          );
+        }
+        report.textContent = JSON.stringify(
+          {
+            done: true,
+            passed: results.filter((r) => r.pass).length,
+            total: results.length,
+            results,
+          },
+          null,
+          2,
+        );
+      } catch (error) {
+        report.textContent = JSON.stringify(
+          { done: true, error: String(error), results },
+          null,
+          2,
+        );
+      }
+    };
+    await load();
+  </script>
+</html>

@@ -136,6 +136,19 @@
     };
     const tap = async (project, width, region = "title") => {
       await load(project.id, width);
+      if (region === "icon")
+        await waitFor(() => {
+          const { win } = state();
+          const index = projects.findIndex((item) => item.id === project.id);
+          const leaf = win.__pond.scene.children
+            .flatMap((part) => part.children)
+            .find((part) => part.renderOrder === 40 + index);
+          // Icons are intentionally prepared at idle and revealed only after
+          // shader compilation. A first scene frame does not imply readiness.
+          return leaf?.children.some(
+            (part) => part.renderOrder === 60 + index && part.visible,
+          );
+        });
       const { doc } = state();
       const point = pointOnLeaf(project.id, region);
       const target = doc.elementFromPoint(point.x, point.y);

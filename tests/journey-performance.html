@@ -58,9 +58,7 @@
         () =>
           iframe.contentWindow.__pond &&
           iframe.contentDocument.querySelector(".folio") &&
-          !iframe.contentDocument.body.textContent.includes(
-            "正在铺开这一池作品",
-          ),
+          !iframe.contentDocument.querySelector(".loading-state"),
       );
       return iframe.contentWindow;
     };

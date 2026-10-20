@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>荷塘显隐与加载页回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    nav {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      flex-wrap: wrap;
+    }
+    button {
+      min-height: 44px;
+    }
+    iframe {
+      display: block;
+      width: 390px;
+      height: 700px;
+      border: 0;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+    .cursor-samples {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px;
+    }
+    .cursor-samples img {
+      width: 32px;
+      height: 32px;
+    }
+  </style>
+  <nav>
+    <button id="run">运行显隐与光标检查</button>
+    <button id="loading-mobile">预览手机加载页</button>
+    <button id="loading-desktop">预览电脑加载页</button>
+    <button id="pond">预览手机荷塘</button>
+  </nav>
+  <div class="cursor-samples">
+    光标实际 SVG：<img src="/art/koi-cursor.svg" alt="普通锦鲤光标" />
+    <img src="/art/koi-cursor-active.svg" alt="可点击锦鲤光标" />
+  </div>
+  <iframe title="实际荷塘界面"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    import React from "react";
+    import ReactDOM from "react-dom/client";
+    const frame = document.querySelector("iframe"),
+      report = document.querySelector("#report");
+    let results = [];
+    const waitFor = async (predicate) => {
+      for (let i = 0; i < 400; i++) {
+        if (predicate()) return;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      throw Error("等待荷塘状态超时");
+    };
+    const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const check = (name, pass) => {
+      results.push({ name, pass: Boolean(pass) });
+      report.textContent = JSON.stringify({ done: false, results }, null, 2);
+    };
+    const load = async (width, path = "/?seed=711") => {
+      frame.style.width = `${width}px`;
+      frame.src = path;
+      await new Promise((resolve) => (frame.onload = resolve));
+      await waitFor(
+        () =>
+          frame.contentWindow.__pond &&
+          !frame.contentDocument.querySelector(".loading-state"),
+      );
+      await pause(80);
+    };
+    const previewLoading = async (width) => {
+      frame.style.width = `${width}px`;
+      frame.src = "about:blank";
+      await new Promise((resolve) => (frame.onload = resolve));
+      const doc = frame.contentDocument;
+      doc.head.innerHTML = '<link rel="stylesheet" href="/src/style.css">';
+      const node = doc.createElement("div");
+      doc.body.append(node);
+      const { PondLoading } = await import("/src/App.tsx");
+      ReactDOM.createRoot(node).render(React.createElement(PondLoading));
+      await waitFor(() => doc.querySelector(".loading-mark"));
+      await doc.fonts.ready;
+    };
+    document.querySelector("#loading-mobile").onclick = () =>
+      previewLoading(390);
+    document.querySelector("#loading-desktop").onclick = () =>
+      previewLoading(1280);
+    document.querySelector("#pond").onclick = () => load(390);
+    document.querySelector("#run").onclick = async () => {
+      results = [];
+      try {
+        await load(390);
+        let doc = frame.contentDocument,
+          win = frame.contentWindow,
+          pond = win.__pond;
+        // Only fixture-owned geometry is adjusted; the real frame loop, labels
+        // and CSS consume the resulting scene exposure without mock callbacks.
+        for (const leaf of pond.leaves) leaf.group.scale.setScalar(0);
+        for (const flower of pond.flowers) flower.object.scale.setScalar(0);
+        await pause(350);
+        const labels = [...doc.querySelectorAll(".fish-entry")];
+        check(
+          "mobile uncovered fish names fade in",
+          labels.every(
+            (el) =>
+              el.dataset.exposed === "true" &&
+              Number(
+                win.getComputedStyle(el.querySelector(".fish-name")).opacity,
+              ) > 0.95,
+          ),
+        );
+        for (const leaf of pond.leaves) leaf.group.scale.setScalar(80);
+        await pause(60);
+        const exiting = labels.map((el) =>
+          Number(win.getComputedStyle(el.querySelector(".fish-name")).opacity),
+        );
+        check(
+          "mobile disappearance is animated, not an instant cut",
+          exiting.some((opacity) => opacity > 0 && opacity < 1),
+        );
+        await pause(350);
+        check(
+          "mobile covered fish names fade out",
+          labels.every(
+            (el) =>
+              el.dataset.exposed === "false" &&
+              Number(
+                win.getComputedStyle(el.querySelector(".fish-name")).opacity,
+              ) < 0.05,
+          ),
+        );
+        check(
+          "hidden and exposed labels never intercept pointer input",
+          labels.every(
+            (el) =>
+              win.getComputedStyle(el.querySelector(".fish-name"))
+                .pointerEvents === "none",
+          ),
+        );
+        const fine = win.matchMedia(
+          "(hover: hover) and (pointer: fine)",
+        ).matches;
+        if (fine) {
+          check(
+            "normal mouse uses head-anchored koi",
+            win.getComputedStyle(doc.body).cursor.includes("koi-cursor.svg") &&
+              win.getComputedStyle(doc.body).cursor.includes("2 2"),
+          );
+          check(
+            "clickable mouse uses larger koi",
+            win
+              .getComputedStyle(doc.querySelector(".works-toolbar button"))
+              .cursor.includes("koi-cursor-active.svg"),
+          );
+          check(
+            "disabled controls retain small koi",
+            win
+              .getComputedStyle(doc.querySelector("button:disabled"))
+              .cursor.includes("koi-cursor.svg"),
+          );
+        }
+        await load(1280);
+        doc = frame.contentDocument;
+        win = frame.contentWindow;
+        pond = win.__pond;
+        const desktopLabels = [...doc.querySelectorAll(".fish-name")];
+        check(
+          "desktop names are not always visible",
+          desktopLabels.every(
+            (el) => Number(win.getComputedStyle(el).opacity) < 0.05,
+          ),
+        );
+        for (const leaf of pond.leaves) leaf.group.scale.setScalar(0);
+        for (const flower of pond.flowers) flower.object.scale.setScalar(0);
+        await pause(80);
+        const fish = pond.debug().fish[0].screen;
+        pond.setPointer(fish.x, fish.y, true);
+        await pause(350);
+        check(
+          "desktop hover still animates its fish name",
+          Number(
+            win.getComputedStyle(
+              doc.querySelector('.fish-entry[data-revealed="true"] .fish-name'),
+            ).opacity,
+          ) > 0.95,
+        );
+        await load(390);
+        doc = frame.contentDocument;
+        win = frame.contentWindow;
+        doc
+          .querySelector("canvas")
+          .dispatchEvent(
+            new win.Event("webglcontextlost", { cancelable: true }),
+          );
+        await waitFor(() => doc.querySelector(".folio.is-fallback"));
+        await pause(350);
+        check(
+          "WebGL fallback retains all readable project names",
+          [...doc.querySelectorAll(".fish-name")].every(
+            (el) => Number(win.getComputedStyle(el).opacity) > 0.95,
+          ),
+        );
+        check(
+          "WebGL failure dismisses loading poem without blocking navigation",
+          !doc.querySelector(".loading-state") &&
+            doc.querySelectorAll(".fish-entry").length === 8,
+        );
+        await load(1280, "/works/mosic");
+        doc = frame.contentDocument;
+        win = frame.contentWindow;
+        doc.querySelector(".image-open").click();
+        await waitFor(() => doc.querySelector(".image-viewer[open]"));
+        doc.querySelector('[aria-label="放大图片"]').click();
+        await pause(80);
+        if (fine)
+          check(
+            "zoomed image dragging retains koi cursor",
+            win
+              .getComputedStyle(doc.querySelector(".viewer-stage"))
+              .cursor.includes("koi-cursor-active.svg"),
+          );
+        for (const width of [320, 390, 1280]) {
+          await previewLoading(width);
+          doc = frame.contentDocument;
+          win = frame.contentWindow;
+          const mark = doc
+              .querySelector(".loading-mark")
+              .getBoundingClientRect(),
+            poem = doc.querySelector(".loading-poem").getBoundingClientRect();
+          check(
+            `${width}: silhouette is centered above poem`,
+            mark.bottom < poem.top &&
+              Math.abs(mark.x + mark.width / 2 - width / 2) < 1,
+          );
+          check(
+            `${width}: poem has three complete lines without overflow`,
+            doc.querySelectorAll(".loading-line").length === 3 &&
+              poem.left >= 0 &&
+              poem.right <= width &&
+              [...doc.querySelectorAll(".loading-line")].every(
+                (el) =>
+                  el.getBoundingClientRect().height <
+                  parseFloat(win.getComputedStyle(el).lineHeight) * 1.1,
+              ),
+          );
+        }
+        report.textContent = JSON.stringify(
+          {
+            done: true,
+            passed: results.filter((r) => r.pass).length,
+            total: results.length,
+            results,
+          },
+          null,
+          2,
+        );
+      } catch (error) {
+        report.textContent = JSON.stringify(
+          { done: true, error: String(error), results },
+          null,
+          2,
+        );
+      }
+    };
+    await load(390);
+  </script>
+</html>

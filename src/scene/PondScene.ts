@@ -10,6 +10,11 @@ import { POND_DEPTH_SCALE, setPondLayer } from "./depth";
 import { Journey } from "./journey";
 import { PondSeam } from "./seam";
 import {
+  estimateFishBodyExposure,
+  type ExposureBounds,
+  type FishOccluder,
+} from "./fish-exposure";
+import {
   activeTapDisturbance,
   createTapDisturbance,
   isVisiblePondLeafHit,
@@ -46,6 +51,7 @@ type Leaf = ReturnType<typeof createLeaf> & {
   phase: number;
   project?: ProjectId;
   polygon: Vec2[];
+  occluder: { bounds: ExposureBounds; polygon: Vec2[] };
   rotation: number;
 };
 type Fish = ReturnType<typeof createKoi> & {
@@ -54,6 +60,7 @@ type Fish = ReturnType<typeof createKoi> & {
   screen: Vec2;
   angle: number;
   scale: number;
+  exposure: number;
 };
 type Flower = {
   object: THREE.Group;
@@ -64,6 +71,11 @@ type Flower = {
   reach: Vec2;
   offset: Vec2;
   velocity: Vec2;
+  headContour: THREE.Vector3[];
+  occluder: {
+    bounds: ExposureBounds;
+    polygon: Vec2[];
+  };
 };
 export type SceneFrame = {
   inscription: Vec2 & { visible: boolean; radius: number; angle: number };
@@ -81,6 +93,7 @@ export type SceneFrame = {
     y: number;
     visible: boolean;
     angle: number;
+    exposure: number;
   }[];
   hovered: ProjectId | null;
   progress: number;
@@ -97,6 +110,51 @@ type Callbacks = {
   pick: (id: ProjectId) => void;
   error: () => void;
 };
+
+function flowerHeadContour(object: THREE.Group) {
+  const vertices: THREE.Vector3[] = [];
+  object.updateMatrixWorld(true);
+  object.traverse((part) => {
+    if (!(part instanceof THREE.Mesh)) return;
+    // createFlower uses cylinders/tubes only for its thin stems. Select by
+    // geometry semantics, not child order; petals, sepals and pod stay included.
+    if (["CylinderGeometry", "TubeGeometry"].includes(part.geometry.type))
+      return;
+    const position = part.geometry.getAttribute("position");
+    for (let i = 0; i < position.count; i++)
+      vertices.push(
+        new THREE.Vector3()
+          .fromBufferAttribute(position, i)
+          .applyMatrix4(part.matrixWorld),
+      );
+  });
+  const screenY = (point: THREE.Vector3) => point.z * SIN - point.y * COS;
+  vertices.sort((a, b) => a.x - b.x || screenY(a) - screenY(b));
+  const cross = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) =>
+    (b.x - a.x) * (screenY(c) - screenY(a)) -
+    (screenY(b) - screenY(a)) * (c.x - a.x);
+  const hull: THREE.Vector3[] = [];
+  for (const vertex of vertices) {
+    while (
+      hull.length >= 2 &&
+      cross(hull[hull.length - 2], hull[hull.length - 1], vertex) <= 0
+    )
+      hull.pop();
+    hull.push(vertex);
+  }
+  const lowerLength = hull.length;
+  for (let i = vertices.length - 2; i >= 0; i--) {
+    const vertex = vertices[i];
+    while (
+      hull.length > lowerLength &&
+      cross(hull[hull.length - 2], hull[hull.length - 1], vertex) <= 0
+    )
+      hull.pop();
+    hull.push(vertex);
+  }
+  hull.pop();
+  return hull;
+}
 
 function disposeObject(object: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>(),
@@ -128,6 +186,11 @@ export class PondScene {
   private galleryLeaves: Leaf[] = [];
   private flowers: Flower[] = [];
   private fish: Fish[] = [];
+  private labelMedia = window.matchMedia("(hover: none), (pointer: coarse)");
+  private exposureOccluders: FishOccluder[] = [];
+  private exposurePoint = new THREE.Vector3();
+  private exposureFish = { x: 0, y: 0, length: 1, angle: 0, scale: 1 };
+  private exposureViewport = { width: 1, height: 1 };
   private emblems: {
     object: THREE.Group;
     id: ProjectId;
@@ -217,6 +280,8 @@ export class PondScene {
       galleryStride(width);
     this.w = width;
     this.h = height;
+    this.exposureViewport.width = width;
+    this.exposureViewport.height = height;
     this.dpr = Math.min(devicePixelRatio || 1, width < 640 ? 1 : 1.5);
     this.pacing = width < 640 ? 30 : 60;
     this.renderer.setPixelRatio(this.dpr);
@@ -356,6 +421,10 @@ export class PondScene {
       velocity: { x: 0, y: 0 },
       phase: seed * 0.47,
       polygon: [],
+      occluder: {
+        bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
+        polygon: [],
+      },
       rotation: Math.sin(seed * 1.7) * 0.35,
     };
     leaf.rotation = Math.sin(seed * 2.13) * 2.6;
@@ -468,6 +537,7 @@ export class PondScene {
         screen: home,
         angle: 0,
         scale: 1,
+        exposure: 0,
       });
     });
     const radius = galleryRadius(w, h);
@@ -524,6 +594,7 @@ export class PondScene {
   ) {
     const object = createFlower(radius, seed, stage);
     object.userData.galleryDecoration = decoration;
+    const headContour = decoration ? [] : flowerHeadContour(object);
     // Cache the projected extent once, not per frame. A raised bud is well
     // above its root anchor; its visible head must receive touch/hover too.
     const bounds = new THREE.Box3().setFromObject(object);
@@ -548,6 +619,11 @@ export class PondScene {
       },
       offset: { x: 0, y: 0 },
       velocity: { x: 0, y: 0 },
+      headContour,
+      occluder: {
+        bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
+        polygon: headContour.map(() => ({ x: 0, y: 0 })),
+      },
     });
   }
 
@@ -720,6 +796,72 @@ export class PondScene {
     return leaf.contour.map((v) =>
       this.project(v.clone().applyMatrix4(leaf.group.matrixWorld)),
     );
+  }
+  private updateFishExposure() {
+    // Labels consume this only on the home pond's compact/touch layout. Never
+    // spend polygon-sampling work in the gallery or on hover-only desktops.
+    if (
+      this.detail ||
+      this.progress >= 0.08 ||
+      !(this.w < 640 || this.labelMedia.matches)
+    ) {
+      for (const fish of this.fish) fish.exposure = 0;
+      return;
+    }
+    const occluders = this.exposureOccluders;
+    occluders.length = 0;
+    for (const leaf of this.leaves) {
+      if (!leaf.group.visible || leaf.group.userData.galleryDecoration)
+        continue;
+      const occluder = leaf.occluder,
+        bounds = occluder.bounds;
+      occluder.polygon = leaf.polygon;
+      bounds.minX = bounds.minY = Infinity;
+      bounds.maxX = bounds.maxY = -Infinity;
+      for (const point of leaf.polygon) {
+        bounds.minX = Math.min(bounds.minX, point.x);
+        bounds.minY = Math.min(bounds.minY, point.y);
+        bounds.maxX = Math.max(bounds.maxX, point.x);
+        bounds.maxY = Math.max(bounds.maxY, point.y);
+      }
+      occluders.push(occluder);
+    }
+    for (const flower of this.flowers) {
+      if (!flower.object.visible || flower.object.userData.galleryDecoration)
+        continue;
+      const occluder = flower.occluder,
+        bounds = occluder.bounds;
+      bounds.minX = bounds.minY = Infinity;
+      bounds.maxX = bounds.maxY = -Infinity;
+      // Project only the cached head hull, never the whole 3D bounds (which
+      // include opaque-looking empty space between the thin stem and petals).
+      for (let i = 0; i < flower.headContour.length; i++) {
+        const point = this.exposurePoint
+          .copy(flower.headContour[i])
+          .applyMatrix4(flower.object.matrixWorld)
+          .project(this.camera);
+        const x = ((point.x + 1) * this.w) / 2,
+          y = ((1 - point.y) * this.h) / 2;
+        occluder.polygon[i].x = x;
+        occluder.polygon[i].y = y;
+        bounds.minX = Math.min(bounds.minX, x);
+        bounds.minY = Math.min(bounds.minY, y);
+        bounds.maxX = Math.max(bounds.maxX, x);
+        bounds.maxY = Math.max(bounds.maxY, y);
+      }
+      occluders.push(occluder);
+    }
+    const body = this.exposureFish;
+    for (const fish of this.fish) {
+      body.x = fish.screen.x;
+      body.y = fish.screen.y;
+      body.length = fish.length;
+      body.angle = fish.angle;
+      body.scale = fish.scale;
+      fish.exposure = fish.group.visible
+        ? estimateFishBodyExposure(body, occluders, this.exposureViewport)
+        : 0;
+    }
   }
   getProjectOutline(id: ProjectId) {
     const leaf = this.galleryLeaves.find((l) => l.project === id);
@@ -969,6 +1111,7 @@ export class PondScene {
     this.galleryLeaves
       .filter((l) => l.group.visible)
       .forEach((l) => (l.polygon = this.outline(l)));
+    this.updateFishExposure();
     this.hovered =
       focus?.id ?? (this.pointer.active ? this.hitFish(this.pointer) : null);
     const begin = performance.now();
@@ -1029,6 +1172,7 @@ export class PondScene {
         ...f.screen,
         angle: f.angle,
         visible: f.group.visible,
+        exposure: f.exposure,
       })),
       hovered: this.hovered,
       progress: this.progress,

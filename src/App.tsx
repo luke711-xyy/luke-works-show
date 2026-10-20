@@ -25,6 +25,7 @@ import type { PondScene, SceneFrame } from "./scene/PondScene";
 import { galleryWheelOffset } from "./scroll";
 import { preloadImage, warmImages } from "./media-preload";
 import { isTapGesture, shouldTrackPondPointer } from "./scene/input";
+import { updateFishLabelVisibility } from "./scene/fish-exposure";
 import ImageViewer from "./ImageViewer";
 import { imageSequence } from "./image-viewer-gestures";
 import {
@@ -85,6 +86,33 @@ function Icon({ name }: { name: "back" | "close" | "arrow" }) {
     </svg>
   );
 }
+export function PondLoading() {
+  return (
+    <div className="loading-state" role="status">
+      <svg
+        className="loading-mark"
+        viewBox="0 0 128 92"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M49 49 65 68C58 76 43 80 30 75 17 71 9 61 11 49 12 34 25 23 39 22 55 20 69 29 73 41 76 52 72 61 67 65Z" />
+        <path
+          d="M79 66 93 79C86 87 70 88 59 82 47 76 47 65 54 56 61 47 76 44 88 48 98 51 103 60 99 70 98 73 96 75 95 76Z"
+          stroke="var(--paper)"
+          strokeWidth="1.3"
+          strokeLinejoin="round"
+        />
+        <path d="M88 54C85 45 77 37 65 34 64 43 73 53 88 54ZM89 51C76 43 74 29 80 20 89 25 95 38 89 51ZM90 49C80 37 80 23 89 12 100 24 99 38 90 49ZM91 51C88 37 96 23 105 21 110 33 105 44 91 51ZM91 54C101 40 111 36 119 37 116 50 105 57 91 54Z" />
+        <path d="M87 54C86 58 85 62 84 66L87 67C89 62 90 58 90 54Z" />
+      </svg>
+      <div className="loading-poem">
+        <p className="loading-line">秋荷一滴露，清夜坠玄天。</p>
+        <p className="loading-line">摇晃光不定，联翩影才圆。</p>
+        <p className="loading-line loading-credit">——刘禹锡《观荷叶露珠》</p>
+      </div>
+    </div>
+  );
+}
 export function MediaFigure({
   item,
   project,
@@ -100,7 +128,9 @@ export function MediaFigure({
 }) {
   const [failed, setFailed] = useState(false);
   return (
-    <figure className={`case-media ${item.kind === "video" ? "is-film" : ""}`}>
+    <figure
+      className={`case-media ${item.kind === "video" ? "is-film" : ""} ${item.width < item.height ? "is-portrait" : "is-landscape"}`}
+    >
       {failed ? (
         <div className="media-failure">
           <p>这张画面暂时未能载入。</p>
@@ -157,6 +187,122 @@ export function MediaFigure({
     </figure>
   );
 }
+// Curated reading groups keep screenshots next to the choices they illustrate.
+// Media indices follow mediaFor's cover-first order, also used by the viewer.
+const caseChapters: Record<
+  ProjectId,
+  { media: number[]; decisions: number[]; layout: "left" | "right" | "wide" }[]
+> = {
+  mosic: [
+    { media: [0], decisions: [], layout: "right" },
+    { media: [1], decisions: [0, 1], layout: "left" },
+    { media: [2, 3], decisions: [2], layout: "wide" },
+  ],
+  "meet-countdown": [
+    { media: [0], decisions: [], layout: "wide" },
+    { media: [1], decisions: [0, 1], layout: "right" },
+    { media: [2], decisions: [2], layout: "left" },
+  ],
+  "water-reminder": [
+    { media: [0], decisions: [], layout: "right" },
+    { media: [1, 2], decisions: [0, 1], layout: "wide" },
+    { media: [3, 4, 5], decisions: [2], layout: "left" },
+  ],
+  worldmaker: [
+    { media: [0], decisions: [], layout: "wide" },
+    { media: [1], decisions: [0], layout: "left" },
+    { media: [2, 3], decisions: [1, 2], layout: "wide" },
+  ],
+  "moce-film": [
+    { media: [0], decisions: [], layout: "wide" },
+    { media: [], decisions: [0, 1, 2], layout: "wide" },
+  ],
+  teleprompter: [
+    { media: [0], decisions: [0], layout: "right" },
+    { media: [1], decisions: [1, 2], layout: "left" },
+  ],
+  huazhi: [
+    { media: [0], decisions: [], layout: "wide" },
+    { media: [1], decisions: [0], layout: "left" },
+    { media: [2], decisions: [1, 2], layout: "right" },
+  ],
+  lanbridge: [{ media: [0], decisions: [0, 1, 2], layout: "left" }],
+};
+export function CaseStory({
+  project,
+  open,
+}: {
+  project: Project;
+  open: (item: Media) => void;
+}) {
+  const media = mediaFor(project.id);
+  const images = imageSequence(media);
+  // This unusually tall voice-message screenshot needs more narrative beside
+  // it; the homepage remains a generous establishing view before that group.
+  const introductionChapter = project.id === "meet-countdown" ? 1 : 0;
+  const figure = (index: number) => {
+    const item = media[index];
+    return item ? (
+      <MediaFigure
+        key={item.id}
+        item={item}
+        project={project}
+        position={images.findIndex((image) => image.id === item.id) + 1}
+        total={images.length}
+        open={open}
+      />
+    ) : null;
+  };
+  return (
+    <div className="case-story" data-project={project.id}>
+      {caseChapters[project.id].map((chapter, index) => {
+        const inset = chapter.layout !== "wide";
+        const lead = chapter.media[0];
+        return (
+          <section
+            key={index}
+            className={`case-chapter media-${chapter.layout} ${index === 0 ? "case-opening" : ""} ${lead !== undefined && media[lead]?.width < media[lead]?.height ? "has-portrait" : ""}`}
+            aria-label={
+              index === introductionChapter
+                ? "关于这个作品"
+                : chapter.decisions.length
+                  ? "关键设计与实现选择"
+                  : undefined
+            }
+          >
+            {(inset || index === 0) && lead !== undefined && (
+              <div className="case-visual">{figure(lead)}</div>
+            )}
+            {index === introductionChapter && (
+              <div className="case-introduction">
+                <h2>关于这个作品</h2>
+                <div>
+                  {project.introduction.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+            {chapter.decisions.map((decisionIndex) => {
+              const decision = project.decisions[decisionIndex];
+              return (
+                <div className="decision" key={decision.title}>
+                  <h3>{decision.title}</h3>
+                  <p>{decision.text}</p>
+                </div>
+              );
+            })}
+            {chapter.media.length > (inset || index === 0 ? 1 : 0) && (
+              <div className="case-plates">
+                {chapter.media.slice(inset || index === 0 ? 1 : 0).map(figure)}
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
 function ProjectDetail({
   project,
   close,
@@ -170,8 +316,6 @@ function ProjectDetail({
   const [viewer, setViewer] = useState<number | null>(null);
   const media = mediaFor(project.id);
   const images = imageSequence(media);
-  const imagePosition = (item: Media) =>
-    images.findIndex((image) => image.id === item.id) + 1;
   const openImage = (item: Media) => {
     const index = images.findIndex((image) => image.id === item.id);
     if (index >= 0) setViewer(index);
@@ -248,50 +392,7 @@ function ProjectDetail({
             </div>
             <p className="case-medium">{project.medium}</p>
           </header>
-          {media[0] && (
-            <MediaFigure
-              item={media[0]}
-              project={project}
-              position={imagePosition(media[0])}
-              total={images.length}
-              open={openImage}
-            />
-          )}
-          <div className="case-introduction">
-            <h2>关于这个作品</h2>
-            <div>
-              {project.introduction.map((p) => (
-                <p key={p}>{p}</p>
-              ))}
-            </div>
-          </div>
-          <section className="case-decisions" aria-label="关键设计与实现选择">
-            {project.decisions.map((d, i) => (
-              <div className="decision" key={d.title}>
-                <h3>{d.title}</h3>
-                <p>{d.text}</p>
-                {i === 1 && media[1] && (
-                  <MediaFigure
-                    item={media[1]}
-                    project={project}
-                    position={imagePosition(media[1])}
-                    total={images.length}
-                    open={openImage}
-                  />
-                )}
-              </div>
-            ))}
-          </section>
-          {media.slice(2).map((item) => (
-            <MediaFigure
-              key={item.id}
-              item={item}
-              project={project}
-              position={imagePosition(item)}
-              total={images.length}
-              open={openImage}
-            />
-          ))}
+          <CaseStory project={project} open={openImage} />
           <footer className="case-footer">
             <p>下一片荷叶，另一个想法。</p>
             <button className="text-button" onClick={close}>
@@ -483,6 +584,10 @@ export default function App() {
           b.style.top = "0px";
           b.style.transform = `translate3d(${f.x + homePan}px,${f.y}px,0) translate(-50%,-50%)`;
           b.dataset.revealed = String(frame.hovered === f.id);
+          const exposed = String(
+            updateFishLabelVisibility(f.exposure, b.dataset.exposed === "true"),
+          );
+          if (b.dataset.exposed !== exposed) b.dataset.exposed = exposed;
         }
       }
     };
@@ -987,12 +1092,7 @@ export default function App() {
           </div>
         </footer>
       </div>
-      {!ready && (
-        <div className="loading-state" role="status">
-          <span className="loading-leaf" />
-          正在铺开这一池作品
-        </div>
-      )}
+      {!ready && <PondLoading />}
       <span className="sr-only" aria-live="polite">
         {hovered ? `发现${getProject(hovered).title}，点击锦鲤进入` : ""}
       </span>
