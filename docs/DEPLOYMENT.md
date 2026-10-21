@@ -10,6 +10,17 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 默认声音与稀疏连续划水波发布
+
+- 运行代码提交：`7bf4dda14fcb3828616e7cbc4035a56f67de67cd`，已推送 GitHub `main`；本发布记录另作纯文档提交。
+- 不变部署地址：https://cb109127.luke-works-show.pages.dev/。正式入口仍为 https://works.luke-xu.asia/，默认平台地址 https://luke-works-show.pages.dev/ 仍可用。
+- 新入口 `index-B2D_tMiZ.js`、场景包 `PondScene-CjJcmGwe.js`、样式 `index-n2G6-TdV.css`。
+- 发布三段用户录音的轻量派生音频：默认异步准备并尝试播放背景声，若浏览器限制则首次指针／按键交互唤醒同一上下文；首页拨动花叶时播放有尾音渐弱的水声，选鱼／选项目叶时播放短水滴。按最新要求没有声音按钮或布局占位，也不读取旧静音偏好。音频约 735KB，使用内容哈希 URL 与 immutable 缓存。
+- 轻点、拖动和松手共用同一波前模型及固定网格：椭圆扩散连续形成方向性尖锋与波翼，停止后自然传播、衰减，保留 Bayer 抖色和花叶遮挡。按发布前反馈，将连续移动生成间隔由 80ms 增至 240ms，持续生成频率降为初版三分之一；首个轻点即时反馈、波峰造型和约 20Hz 几何更新不变。
+- 发布前完整 198 项测试（25 文件）、TypeScript、生产构建、格式及 diff 检查通过。密度回归先在旧实现观察到一秒输入留下 12 个波包，再验证调整后为 5 个（首个接触加 4 个后续波包）。390／1280px 实际应用触摸／鼠标水波检查 14 项全部通过；音频默认启动与首次 resume 被拒的真实原生音频边界检查见 `docs/BROWSER_CHECKS.md`。这些检查不等同于真机 iOS／Android 认证。
+- 正式域名、默认平台域名、不变部署域名的首页、Worldmaker 查询链接及 LanBridge 深链接共 9 条 HTTP 200，均引用新入口；三个域名各 7 个 JS/CSS 均与本地构建逐字节相同，三段 MP3 也分别通过内容哈希、音频类型和 immutable 缓存检查。24 个源素材哈希、23 张清晰图像素及 48 个正式域名媒体 URL 再次通过。
+- 正式域名原生鼠标划水、选鱼进入长卷、点击 MOSIC 荷叶、主动打开 01/04／100% 图片查看器、关闭各层并返回首页均正常；声音按钮数量为 0，读回新入口，无 warn/error。线上证据 `.impeccable/review/sparse-contact-audio-release-live.png` 不随站点发布。未改 DNS、主域名、www、认证或安全策略。
+
 ## 2026-10-21 详情与加载叠化、锦鲤光标尺寸发布
 
 - 运行代码提交：`147ac14000b1662d99b51f19b6307fc2ceaef8e1`，已推送 GitHub `main`；本发布记录另作纯文档提交。
