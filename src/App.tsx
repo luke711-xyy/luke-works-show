@@ -95,15 +95,64 @@ export function PondLoading() {
         fill="currentColor"
         aria-hidden="true"
       >
-        <path d="M49 49 65 68C58 76 43 80 30 75 17 71 9 61 11 49 12 34 25 23 39 22 55 20 69 29 73 41 76 52 72 61 67 65Z" />
-        <path
-          d="M79 66 93 79C86 87 70 88 59 82 47 76 47 65 54 56 61 47 76 44 88 48 98 51 103 60 99 70 98 73 96 75 95 76Z"
-          stroke="var(--paper)"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-        <path d="M88 54C85 45 77 37 65 34 64 43 73 53 88 54ZM89 51C76 43 74 29 80 20 89 25 95 38 89 51ZM90 49C80 37 80 23 89 12 100 24 99 38 90 49ZM91 51C88 37 96 23 105 21 110 33 105 44 91 51ZM91 54C101 40 111 36 119 37 116 50 105 57 91 54Z" />
-        <path d="M87 54C86 58 85 62 84 66L87 67C89 62 90 58 90 54Z" />
+        <defs>
+          <path
+            id="loading-rear-leaf"
+            d="M40 35 20 16C12 21 9 32 14 44 19 57 34 61 48 56 65 52 73 40 68 28 64 14 49 6 35 10Z"
+          />
+          <path
+            id="loading-front-leaf"
+            d="M78 65 102 86C89 92 69 91 54 82 42 75 35 65 41 55 48 43 66 39 83 41 105 42 120 52 119 65 119 70 117 75 114 78Z"
+          />
+          <g id="loading-lotus">
+            <path d="M78 51C68 42 67 28 78 13 89 28 88 42 78 51Z" />
+            <path d="M77 52C64 47 59 34 62 22 72 27 78 40 77 52Z" />
+            <path d="M79 52C92 47 97 34 94 22 84 27 78 40 79 52Z" />
+            <path d="M78 54C64 55 53 47 52 35 64 35 74 42 78 54Z" />
+            <path d="M78 54C92 55 103 47 104 35 92 35 82 42 78 54Z" />
+            <path d="M78 55C66 58 56 54 51 47 63 44 73 48 78 55Z" />
+            <path d="M78 55C90 58 100 54 105 47 93 44 83 48 78 55Z" />
+          </g>
+          <mask
+            id="loading-rear-gap"
+            maskUnits="userSpaceOnUse"
+            x="0"
+            y="0"
+            width="128"
+            height="92"
+          >
+            <rect width="128" height="92" fill="white" />
+            <g
+              fill="black"
+              stroke="black"
+              strokeWidth="3.5"
+              strokeLinejoin="round"
+            >
+              <use href="#loading-front-leaf" />
+              <use href="#loading-lotus" />
+            </g>
+          </mask>
+          <mask
+            id="loading-front-gap"
+            maskUnits="userSpaceOnUse"
+            x="0"
+            y="0"
+            width="128"
+            height="92"
+          >
+            <rect width="128" height="92" fill="white" />
+            <use
+              href="#loading-lotus"
+              fill="black"
+              stroke="black"
+              strokeWidth="3.5"
+              strokeLinejoin="round"
+            />
+          </mask>
+        </defs>
+        <use href="#loading-rear-leaf" mask="url(#loading-rear-gap)" />
+        <use href="#loading-front-leaf" mask="url(#loading-front-gap)" />
+        <use href="#loading-lotus" />
       </svg>
       <div className="loading-poem">
         <p className="loading-line">秋荷一滴露，清夜坠玄天。</p>
