@@ -10,6 +10,16 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 开屏诗句字体与居中修复发布
+
+- 运行代码提交：`be0aba44c27a508fd41e51a1ba62e5f196d80e3b`，已推送 GitHub `main`；本发布记录另作纯文档提交。
+- 不变部署地址：https://0a5a182f.luke-works-show.pages.dev/。正式入口仍为 https://works.luke-xu.asia/，默认平台地址仍可用。
+- 新入口 `index-BI1zuk0G.js`、场景包 `PondScene-BhwfTWPD.js`、样式 `index-CwffKJ14.css`。
+- 开屏改用包含全部诗句字形的独立 Noto Serif SC 400 子集并在 HTML 预加载，避免旧正文子集缺字时逐字混入系统字体；原正文主字体不变。新文件 `pond-poem-30afa856ce.woff2` 为 13,244 字节，SHA-256：`30afa856cee929609cffe6d558e87f6a47effff18d508ec3a718e1a0ebb26cee`。按行末标点可见墨迹修正光学居中，保留原文字、字号、加载时序和渐隐过渡。
+- 发布前完整重跑 198 项测试（25 文件）、TypeScript、生产构建、格式及差异检查通过。此前实际加载组件在 320／360／390／430／768／1280px、字体不可用回退下的 46 项检查通过，覆盖逐字字形、可见墨迹中心及溢出；这是 Chromium 尺寸／故障模拟，不是真机 iOS 或微信认证。
+- 正式域名、默认平台域名、不变部署域名的首页、Worldmaker 查询链接及 LanBridge 深链接共 9 条 HTTP 200，均引用新入口及诗句字体预加载；三个域名各 7 个 JS/CSS、新字体内容哈希均与本地构建一致。字体返回 `font/woff2`，缓存为 `public, max-age=604800, stale-while-revalidate=86400`。24 个源素材哈希、23 张清晰图像素一致性及 48 个正式域名媒体 URL 检查通过。
+- 正式网站实际打开可见三行诗句，加载层正常退出；读回新入口和字体预加载。8 个锦鲤项目入口正常显示，MOSIC 可进入长卷及详情、关闭后返回长卷和首页；检查期间无 warn/error。线上首页截图 `.impeccable/review/loading-typography-release-live.png` 为加载完成后的正式页面，不作为开屏字体特写；实际加载组件的手机尺寸特写见 `loading-typography-phone.png`。验收截图和测试夹具不进入部署产物。未改 DNS、域名绑定、认证或安全策略。
+
 ## 2026-10-21 默认声音与稀疏连续划水波发布
 
 - 运行代码提交：`7bf4dda14fcb3828616e7cbc4035a56f67de67cd`，已推送 GitHub `main`；本发布记录另作纯文档提交。
