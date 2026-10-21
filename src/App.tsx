@@ -166,9 +166,15 @@ export function PondLoading({
         <use href="#loading-lotus" />
       </svg>
       <div className="loading-poem">
-        <p className="loading-line">秋荷一滴露，清夜坠玄天。</p>
-        <p className="loading-line">摇晃光不定，联翩影才圆。</p>
-        <p className="loading-line loading-credit">——刘禹锡《观荷叶露珠》</p>
+        <p className="loading-line">
+          秋荷一滴露，清夜坠玄天<span className="loading-punctuation">。</span>
+        </p>
+        <p className="loading-line">
+          摇晃光不定，联翩影才圆<span className="loading-punctuation">。</span>
+        </p>
+        <p className="loading-line loading-credit">
+          ——刘禹锡《观荷叶露珠<span className="loading-punctuation">》</span>
+        </p>
       </div>
     </div>
   );

@@ -13,8 +13,8 @@ describe("initial pond loading status", () => {
     vi.stubGlobal("innerHeight", 844);
     const html = renderToStaticMarkup(createElement(App));
     const lines = [
-      ...html.matchAll(/<p class="loading-line[^\"]*">([^<]+)<\/p>/g),
-    ].map((match) => match[1]);
+      ...html.matchAll(/<p class="loading-line[^\"]*">([\s\S]*?)<\/p>/g),
+    ].map((match) => match[1].replace(/<[^>]+>/g, ""));
     expect(lines).toEqual([
       "秋荷一滴露，清夜坠玄天。",
       "摇晃光不定，联翩影才圆。",

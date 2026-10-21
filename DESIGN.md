@@ -23,6 +23,18 @@ colors:
   leaf-light: "#9b9c98"
   leaf-pale: "#dcd9cd"
 typography:
+  loading-poem:
+    fontFamily: '"Pond Poem Serif", "Songti SC", "STSong", "Noto Serif SC", serif'
+    fontSize: "clamp(14px, 4.3vw, 20px)"
+    fontWeight: 400
+    lineHeight: 2
+    letterSpacing: "0.12em"
+  loading-credit:
+    fontFamily: '"Pond Poem Serif", "Songti SC", "STSong", "Noto Serif SC", serif'
+    fontSize: "0.72em"
+    fontWeight: 400
+    lineHeight: 2
+    letterSpacing: "0.07em"
   display:
     fontFamily: '"Folio Serif", "Noto Serif SC", serif'
     fontSize: "clamp(42px, 5.8vw, 78px)"
@@ -147,6 +159,8 @@ components:
 ## Typography
 
 **Display Font:** Folio Serif，回退 Noto Serif SC、serif。项目包含本地可变字体文件（字重 400–700）。
+
+加载诗句使用同一 Noto Serif SC 设计的独立 400 字重子集 `Pond Poem Serif`，完整覆盖三行原文及标点，约 13KB、内容哈希文件名并提前预加载；不复用缺少部分诗句字符的旧正文／标题子集。未加载或失败时整行回退到 Songti SC／STSong／Noto Serif SC／serif，不夹用旧子集。三行仍为语义正文、非图片；句末句号与书名号仅收窄多余的全角占位并去掉末尾字距，以可见墨迹而不是包含空白的字框对齐图标中心。字号、行距、花叶图标、加载时序、其余页面字体均不变。`scripts/prepare-loading-font.mjs` 从组件诗句提取完整字符，后续换诗时重新生成并同步 CSS 和预加载 URL。
 **Body Font:** PingFang SC、Hiragino Sans GB、Microsoft YaHei、system-ui、sans-serif。
 
 **Character:** 宋体承担作品名、案例标题和简短引导，清晰中文无衬线承担说明与控件。正文不是像素字体；低透明度的颗粒蒙版只提供表面质感。

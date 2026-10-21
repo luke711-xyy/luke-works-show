@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>加载诗句：完整字库与视觉居中回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    nav {
+      padding: 12px;
+      display: flex;
+      gap: 12px;
+    }
+    button {
+      min-height: 44px;
+    }
+    iframe {
+      display: block;
+      width: 390px;
+      height: 700px;
+      border: 0;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
+  <nav>
+    <button id="run">检查字库与各尺寸居中</button>
+    <button id="phone">预览手机加载页</button>
+  </nav>
+  <iframe title="实际加载页组件"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    import React from "react";
+    import { createRoot } from "react-dom/client";
+    import { PondLoading } from "/src/App.tsx";
+    const frame = document.querySelector("iframe"),
+      report = document.querySelector("#report");
+    const css = await fetch("/src/style.css?direct").then((r) => r.text());
+    let root;
+    const mount = async (width, unavailable = false) => {
+      root?.unmount();
+      frame.style.width = width + "px";
+      frame.src = "about:blank";
+      await new Promise((resolve) => (frame.onload = resolve));
+      const doc = frame.contentDocument;
+      const style = doc.createElement("style");
+      style.textContent = unavailable
+        ? css.replace(/src:\s*url\([^;]+;/g, 'src: local("missing-test-font");')
+        : css;
+      doc.head.append(style);
+      const element = doc.createElement("div");
+      element.id = "root";
+      doc.body.append(element);
+      root = createRoot(element);
+      root.render(React.createElement(PondLoading));
+      for (let i = 0; i < 200 && !doc.querySelector(".loading-line"); i++)
+        await new Promise((r) => setTimeout(r, 10));
+      await doc.fonts.ready;
+      return doc;
+    };
+    const context = (doc) => {
+      const canvas = doc.createElement("canvas");
+      canvas.width = canvas.height = 160;
+      return canvas.getContext("2d");
+    };
+    const missingGlyphs = async (doc) => {
+      const lines = [...doc.querySelectorAll(".loading-line")];
+      const chars = [
+        ...new Set(lines.map((line) => line.textContent).join("")),
+      ];
+      const family = frame.contentWindow
+        .getComputedStyle(lines[0])
+        .fontFamily.split(",")[0];
+      await doc.fonts.load(`400 64px ${family}`, chars.join(""));
+      const ctx = context(doc);
+      const raster = (font, char) => {
+        ctx.clearRect(0, 0, 160, 160);
+        ctx.font = font;
+        ctx.fillStyle = "#000";
+        ctx.fillText(char, 32, 100);
+        return ctx.getImageData(0, 0, 160, 160).data;
+      };
+      return chars
+        .filter((char) => {
+          const actual = raster(`400 64px ${family}, monospace`, char);
+          const fallback = raster("400 64px monospace", char);
+          return actual.every((value, index) => value === fallback[index]);
+        })
+        .join("");
+    };
+    const inkBounds = (doc, line) => {
+      const win = frame.contentWindow,
+        ctx = context(doc);
+      const walker = doc.createTreeWalker(line, win.NodeFilter.SHOW_TEXT);
+      let node,
+        left = Infinity,
+        right = -Infinity;
+      while ((node = walker.nextNode())) {
+        const style = win.getComputedStyle(node.parentElement);
+        ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        for (let i = 0; i < node.textContent.length; i++) {
+          const char = node.textContent[i];
+          if (!char.trim()) continue;
+          const range = doc.createRange();
+          range.setStart(node, i);
+          range.setEnd(node, i + 1);
+          const box = range.getBoundingClientRect(),
+            metrics = ctx.measureText(char);
+          left = Math.min(left, box.left - metrics.actualBoundingBoxLeft);
+          right = Math.max(right, box.left + metrics.actualBoundingBoxRight);
+        }
+      }
+      return { left, right, center: (left + right) / 2 };
+    };
+    document.querySelector("#phone").onclick = () => mount(390);
+    document.querySelector("#run").onclick = async () => {
+      const results = [];
+      const check = (name, pass, detail) => {
+        results.push({
+          name,
+          pass: Boolean(pass),
+          ...(detail ? { detail } : {}),
+        });
+        report.textContent = JSON.stringify({ done: false, results }, null, 2);
+      };
+      try {
+        for (const width of [320, 360, 390, 430, 768, 1280]) {
+          const doc = await mount(width);
+          if (width === 320) {
+            const missing = await missingGlyphs(doc);
+            check(
+              "every poem character is drawn by the shipped primary font",
+              missing.length === 0,
+              { missing },
+            );
+          }
+          for (const [i, line] of [
+            ...doc.querySelectorAll(".loading-line"),
+          ].entries()) {
+            const bounds = inkBounds(doc, line);
+            check(
+              `${width}: line ${i + 1} visible glyphs are optically centered`,
+              Math.abs(bounds.center - width / 2) <= 2,
+              { ...bounds, expectedCenter: width / 2 },
+            );
+            check(
+              `${width}: line ${i + 1} stays inside the paper`,
+              bounds.left >= 12 && bounds.right <= width - 12,
+            );
+          }
+          check(
+            `${width}: icon is centered`,
+            Math.abs(
+              doc.querySelector(".loading-mark").getBoundingClientRect().left +
+                52 -
+                width / 2,
+            ) < 1,
+          );
+        }
+        const doc = await mount(390, true);
+        for (const [i, line] of [
+          ...doc.querySelectorAll(".loading-line"),
+        ].entries()) {
+          const bounds = inkBounds(doc, line);
+          check(
+            `font unavailable: line ${i + 1} remains centered and visible`,
+            Math.abs(bounds.center - 195) <= 2 &&
+              bounds.left >= 12 &&
+              bounds.right <= 378,
+            bounds,
+          );
+        }
+        report.textContent = JSON.stringify({ done: true, results }, null, 2);
+      } catch (error) {
+        report.textContent = JSON.stringify(
+          { done: true, results, error: String(error) },
+          null,
+          2,
+        );
+      }
+    };
+  </script>
+</html>
