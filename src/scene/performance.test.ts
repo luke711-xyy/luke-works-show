@@ -106,6 +106,44 @@ const clockFor = () => {
   };
 };
 
+describe("home contact waves in the real scene", () => {
+  it("captures a between-frame phone tap under plants and reuses the resource on resize", () => {
+    const pond = create();
+    const advance = clockFor();
+    advance();
+    pond.setPointer(200, 410, true);
+    pond.setPointer(-1000, -1000, false);
+    advance(4);
+    const group = pond.scene.getObjectByName("contact-water-waves");
+    expect(group).toBeDefined();
+    const mesh = group!.children[0] as THREE.Mesh;
+    expect(mesh.geometry.drawRange.count).toBeGreaterThan(0);
+    expect(mesh.renderOrder).toBeGreaterThan(0);
+    expect(mesh.renderOrder).toBeLessThan(10);
+    const geometry = mesh.geometry;
+    pond.resize(390, 740);
+    expect(pond.scene.getObjectByName("contact-water-waves")).toBe(group);
+    expect(mesh.geometry).toBe(geometry);
+    expect(mesh.geometry.drawRange.count).toBe(0);
+    pond.resize(1280, 740);
+    expect(pond.scene.getObjectByName("contact-water-waves")).toBe(group);
+    expect(mesh.geometry).toBe(geometry);
+    pond.dispose();
+  });
+
+  it("does not create first-level contact waves while browsing the gallery", () => {
+    const pond = create("works");
+    const advance = clockFor();
+    advance();
+    pond.setPointer(200, 410, true);
+    advance(4);
+    const group = pond.scene.getObjectByName("contact-water-waves");
+    expect(group).toBeDefined();
+    expect((group!.children[0] as THREE.Mesh).geometry.drawRange.count).toBe(0);
+    pond.dispose();
+  });
+});
+
 describe("home fish body exposure", () => {
   it.each([
     { stage: "open", flower: 0, x: 122, y: 182, angle: 0 },

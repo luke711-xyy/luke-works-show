@@ -23,9 +23,11 @@ Let visitors discover eight real projects through an interactive lotus pond, fol
 - Eight bounded, continuously wandering koi represent the eight supplied projects. They avoid each other and are often obscured by dense leaves.
 - On compact/touch home layouts, project names fade in only once a meaningful portion of the fish body is exposed; hover-only desktops retain hover disclosure. Keyboard and non-WebGL fallback entry names remain available.
 - Pointer or touch motion parts home leaves, lotus blooms and buds as whole objects. A phone tap holds the parting briefly before a spring return; gallery decoration flowers remain unchanged. Selecting a visible koi takes the visitor to the corresponding project in the adjacent horizontal collection.
+- Home contact waves provide water feedback independently of koi wakes. Tap, drag and release share one continuously velocity-shaped wave family: an elliptical resting ripple sharpens in the movement direction, then propagates and decays without switching effects. The pooled, low-update-rate mesh stays underneath plants and supports reduced motion.
 - The selected koi remains the same object during the transition and guides horizontal browsing, sometimes circling a leaf.
 - Project leaves initially contain only a name and an original project emblem; activation opens the full case study.
-- First- and second-level visual subjects use real dithering; warm paper grain is exempt. Third-level case-study screenshots and video posters retain their original colors with no dithering, including the image viewer. Video playback remains unchanged.
+- First- and second-level visual subjects use real dithering; warm paper grain is exempt. Third-level case-study screenshots and video posters retain their original colors with no dithering, including the image viewer. Native video controls and their own mute choice remain available.
+- Pond audio uses the three supplied recordings: a continuous background bed, water movement while parting home plants, and a short drop on koi/project activation. Audio is enabled by default with no on-screen sound switch or stored mute preference. Playback is attempted on mount; browser autoplay restrictions are recovered on the first pointer/key gesture. Audio pauses in background tabs and never blocks navigation.
 - Project claims must be grounded in supplied material and public source. Unverified metrics and sole-authorship claims are omitted.
 
 ## Brand Commitments

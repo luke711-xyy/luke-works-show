@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>统一接触水波：真实 GPU 与首页交互</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    nav {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+    }
+    button {
+      min-height: 44px;
+    }
+    canvas {
+      display: block;
+    }
+    iframe {
+      display: block;
+      height: 700px;
+      width: 390px;
+      border: 0;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+    .labels {
+      display: flex;
+      justify-content: space-around;
+      width: 960px;
+      padding-top: 18px;
+    }
+  </style>
+  <nav>
+    <button id="pose">对比轻点与同模型拖动波前</button>
+    <button id="play">预览轻点→拖动→松手</button>
+    <button id="run">验证真实首页触摸与鼠标</button>
+  </nav>
+  <div class="labels">
+    <span>零速度接触 · 椭圆扩散</span><span>同一波前 · 沿运动方向形成尖锋</span>
+  </div>
+  <canvas width="960" height="350"></canvas>
+  <iframe title="真实首页水波交互"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    import * as THREE from "three";
+    import { SurfaceWake } from "/src/scene/surface-wake.ts";
+    import { DitherPass } from "/src/scene/dither.ts";
+    import { setPondLayer } from "/src/scene/depth.ts";
+    const sin = Math.sin(0.91),
+      cos = Math.cos(0.91);
+    const renderer = new THREE.WebGLRenderer({
+      canvas: document.querySelector("canvas"),
+      alpha: true,
+      antialias: false,
+      premultipliedAlpha: false,
+    });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.autoClear = false;
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(
+      -480,
+      480,
+      175,
+      -175,
+      0.1,
+      7000,
+    );
+    camera.position.set(0, 2600 * sin, 2600 * cos);
+    camera.lookAt(0, 0, 0);
+    const water = new SurfaceWake();
+    setPondLayer(water.group, 2);
+    water.group.position.set(-480, 0, -175 / sin);
+    scene.add(water.group);
+    const dither = new DitherPass();
+    dither.resize(960, 350, 1);
+    let raf = 0;
+    const draw = () => dither.render(renderer, scene, camera);
+    const pose = () => {
+      cancelAnimationFrame(raf);
+      water.reset();
+      water.input(190, 170, true, 0);
+      water.input(190, 170, false, 0.01);
+      for (let i = 0; i < 42; i++) {
+        const time = i / 60;
+        if (i < 33)
+          water.input(
+            510 + i * 5,
+            180 - Math.sin((i / 32) * Math.PI) * 25,
+            true,
+            time,
+          );
+        else water.input(0, 0, false, time);
+        water.step(1 / 60);
+      }
+      draw();
+    };
+    document.querySelector("#pose").onclick = pose;
+    document.querySelector("#play").onclick = () => {
+      cancelAnimationFrame(raf);
+      water.reset();
+      let previous = 0,
+        start = 0,
+        cycle = -1;
+      const animate = (now) => {
+        start ||= now;
+        const elapsed = (now - start) / 1000,
+          t = elapsed % 3;
+        if (Math.floor(elapsed / 3) !== cycle) {
+          cycle = Math.floor(elapsed / 3);
+          water.reset();
+        }
+        if (t < 1.15) {
+          const move = Math.max(0, t - 0.25);
+          water.input(
+            220 + move * 420,
+            180 - Math.sin(move * 2.5) * 45,
+            true,
+            elapsed,
+          );
+        } else water.input(0, 0, false, elapsed);
+        water.step(previous ? Math.min(0.05, (now - previous) / 1000) : 0.016);
+        previous = now;
+        draw();
+        raf = requestAnimationFrame(animate);
+      };
+      raf = requestAnimationFrame(animate);
+    };
+    const frame = document.querySelector("iframe"),
+      report = document.querySelector("#report");
+    const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+    const wait = async (test) => {
+      for (let i = 0; i < 600; i++) {
+        if (test()) return;
+        await pause(20);
+      }
+      throw Error("首页状态等待超时");
+    };
+    document.querySelector("#run").onclick = async () => {
+      const results = [];
+      const check = (name, pass, detail) => {
+        results.push({
+          name,
+          pass: Boolean(pass),
+          ...(detail ? { detail } : {}),
+        });
+        report.textContent = JSON.stringify({ done: false, results }, null, 2);
+      };
+      try {
+        for (const width of [390, 1280]) {
+          frame.style.width = width + "px";
+          frame.src = "/?seed=711";
+          await new Promise((r) => (frame.onload = r));
+          const win = frame.contentWindow,
+            doc = frame.contentDocument;
+          await wait(() => win.__pond && !doc.querySelector(".loading-state"));
+          const pond = win.__pond,
+            folio = doc.querySelector(".folio");
+          const mesh = pond.scene.getObjectByName("contact-water-waves")
+            .children[0];
+          const geometry = mesh.geometry,
+            buffer = geometry.attributes.position.array;
+          const pointer = (type, x, y, pointerType = "touch") =>
+            folio.dispatchEvent(
+              new win.PointerEvent(type, {
+                bubbles: true,
+                clientX: x,
+                clientY: y,
+                pointerType,
+                pointerId: 71,
+                button: 0,
+              }),
+            );
+          pointer("pointerdown", width * 0.48, 420);
+          pointer("pointerup", width * 0.48, 420);
+          await pause(120);
+          check(
+            `${width}: a between-frame phone tap survives`,
+            pond.debug().contactRipples > 0 && geometry.drawRange.count > 0,
+          );
+          check(
+            `${width}: waves stay below flowers and leaves`,
+            mesh.renderOrder === 2 &&
+              pond.leaves.every(
+                (l) => l.group.renderOrder > mesh.renderOrder,
+              ) &&
+              pond.flowers.every(
+                (f) => f.object.renderOrder > mesh.renderOrder,
+              ),
+          );
+          pointer("pointerdown", width * 0.32, 390);
+          for (let i = 0; i < 18; i++) {
+            pointer(
+              "pointermove",
+              width * (0.32 + i * 0.018),
+              390 - Math.sin(i * 0.15) * 35,
+            );
+            await pause(20);
+          }
+          pointer("pointerup", width * 0.63, 375);
+          check(
+            `${width}: tap and drag use one bounded mesh`,
+            mesh.geometry === geometry &&
+              geometry.attributes.position.array === buffer &&
+              pond.debug().contactRipples <= 20,
+          );
+          check(
+            `${width}: gesture does not navigate or block the page`,
+            !doc.querySelector(".project-detail") &&
+              win.location.pathname === "/",
+          );
+          await pause(2100);
+          check(
+            `${width}: released waves finish naturally`,
+            pond.debug().contactRipples === 0 && geometry.drawRange.count === 0,
+          );
+          for (let i = 0; i < 12; i++) {
+            pointer("pointermove", width * (0.35 + i * 0.02), 390, "mouse");
+            await pause(20);
+          }
+          check(
+            `${width}: mouse hover motion also emits`,
+            pond.debug().contactRipples > 0,
+          );
+          check(
+            `${width}: no per-gesture resource recreation`,
+            mesh.geometry === geometry &&
+              geometry.attributes.position.array === buffer,
+          );
+        }
+        frame.src = "about:blank";
+        report.textContent = JSON.stringify({ done: true, results }, null, 2);
+      } catch (error) {
+        report.textContent = JSON.stringify(
+          { done: true, results, error: String(error) },
+          null,
+          2,
+        );
+      }
+    };
+    pose();
+  </script>
+</html>

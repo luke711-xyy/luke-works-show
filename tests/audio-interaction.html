@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>默认声音与首次交互唤醒回归</title>
+  <style>
+    body {
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    button {
+      min-height: 44px;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
+  <div id="provider"></div>
+  <button id="run">运行默认声音回归</button>
+  <pre id="report">等待首次交互</pre>
+  <script type="module">
+    import React, { useSyncExternalStore } from "react";
+    import { createRoot } from "react-dom/client";
+    import { SoundProvider, useSound } from "/src/Sound.tsx";
+
+    // Observe real native nodes; only the optional first resume rejection is
+    // injected to reproduce the external browser autoplay boundary.
+    const Native = window.AudioContext;
+    const graph = { contexts: [], starts: [], master: null, analyser: null };
+    const blocked = new URLSearchParams(location.search).has("blocked");
+    let rejectFirst = blocked;
+    window.AudioContext = class extends Native {
+      constructor(...args) {
+        super(...args);
+        graph.contexts.push(this);
+        const createGain = this.createGain.bind(this);
+        this.createGain = () => {
+          const gain = createGain();
+          const connect = gain.connect.bind(gain);
+          gain.connect = (to, ...rest) => {
+            if (to === this.destination) {
+              graph.master = gain;
+              graph.analyser = this.createAnalyser();
+              connect(graph.analyser);
+            }
+            return connect(to, ...rest);
+          };
+          return gain;
+        };
+        const createSource = this.createBufferSource.bind(this);
+        this.createBufferSource = () => {
+          const source = createSource();
+          const start = source.start.bind(source);
+          const voice = { source, ended: false };
+          source.start = (...args) => {
+            graph.starts.push(voice);
+            return start(...args);
+          };
+          source.addEventListener("ended", () => (voice.ended = true));
+          return source;
+        };
+        const resume = this.resume.bind(this);
+        this.resume = () => {
+          if (rejectFirst) {
+            rejectFirst = false;
+            return Promise.reject(
+              new DOMException("Autoplay blocked", "NotAllowedError"),
+            );
+          }
+          return resume();
+        };
+      }
+    };
+    let audio;
+    function Probe() {
+      audio = useSound();
+      const state = useSyncExternalStore(audio.subscribe, audio.getSnapshot);
+      return React.createElement(
+        "p",
+        { id: "state", "data-phase": state.phase },
+        JSON.stringify(state),
+      );
+    }
+    const root = createRoot(document.querySelector("#provider"));
+    root.render(
+      React.createElement(SoundProvider, null, React.createElement(Probe)),
+    );
+    const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const wait = async (test) => {
+      for (let i = 0; i < 600; i++) {
+        if (test()) return;
+        await pause(20);
+      }
+      throw Error("声音回归等待超时");
+    };
+    const report = document.querySelector("#report");
+    const results = [];
+    const check = (name, pass) => {
+      results.push({ name, pass: Boolean(pass) });
+      report.textContent = JSON.stringify(
+        { done: false, blocked, results },
+        null,
+        2,
+      );
+    };
+    const bed = () =>
+      graph.starts.filter(
+        (v) => v.source.loop && v.source.buffer.duration > 20,
+      );
+    const water = () =>
+      graph.starts.filter(
+        (v) => v.source.loop && v.source.buffer.duration < 20,
+      );
+    document.querySelector("#run").onclick = async () => {
+      try {
+        check(
+          "mount attempts audio before the test click",
+          graph.contexts.length === 1,
+        );
+        check("sound is enabled without a toggle", audio.getSnapshot().enabled);
+        await wait(() => audio.getSnapshot().phase === "on");
+        check(
+          "first real interaction unlocks playback",
+          graph.contexts[0].state === "running",
+        );
+        check("one background loop", bed().length === 1);
+        check(
+          "three hash-addressed clips requested",
+          performance
+            .getEntriesByType("resource")
+            .filter((r) => /\/audio\/.*\.mp3/.test(r.name)).length === 3,
+        );
+        await pause(400);
+        const samples = new Float32Array(graph.analyser.fftSize);
+        graph.analyser.getFloatTimeDomainData(samples);
+        check(
+          "real decoded audio has nonzero output",
+          samples.some((value) => Math.abs(value) > 0.000001),
+        );
+        audio.stir();
+        await pause(300);
+        audio.stir();
+        check("continued parting reuses one water voice", water().length === 1);
+        await wait(() => water()[0].ended);
+        check("water stops after its fade tail", water()[0].ended);
+        audio.select();
+        const drop = graph.starts.find((v) => !v.source.loop);
+        check(
+          "click uses the short supplied drop",
+          drop && drop.source.buffer.duration < 2,
+        );
+        audio.setVisible(false);
+        await wait(() => graph.contexts[0].state === "suspended");
+        check("hidden page pauses sound", graph.master.gain.value === 0);
+        audio.setVisible(true);
+        await wait(() => audio.getSnapshot().phase === "on");
+        check(
+          "return reuses the background rather than restarting",
+          bed().length === 1 && graph.contexts.length === 1,
+        );
+        root.unmount();
+        report.textContent = JSON.stringify(
+          { done: true, blocked, results },
+          null,
+          2,
+        );
+      } catch (error) {
+        check("runtime exception", false);
+        report.textContent = JSON.stringify(
+          { done: true, blocked, results, error: String(error) },
+          null,
+          2,
+        );
+        root.unmount();
+      }
+    };
+  </script>
+</html>

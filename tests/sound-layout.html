@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>移除声音按钮后的真实页面回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      font: 14px system-ui;
+    }
+    button {
+      min-height: 44px;
+      margin: 10px;
+    }
+    iframe {
+      display: block;
+      width: 390px;
+      height: 720px;
+      border: 0;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
+  <button id="run">检查手机与电脑页面</button>
+  <iframe title="实际作品集"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    const frame = document.querySelector("iframe");
+    const report = document.querySelector("#report");
+    const wait = async (test) => {
+      for (let i = 0; i < 600; i++) {
+        if (test()) return;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      throw Error("页面等待超时");
+    };
+    document.querySelector("#run").onclick = async () => {
+      const results = [];
+      const check = (name, pass) => {
+        results.push({ name, pass: Boolean(pass) });
+        report.textContent = JSON.stringify({ done: false, results }, null, 2);
+      };
+      try {
+        for (const width of [390, 1280]) {
+          for (const path of ["/", "/works?focus=mosic", "/works/worldmaker"]) {
+            frame.style.width = width + "px";
+            frame.src = path;
+            await new Promise((resolve) => (frame.onload = resolve));
+            const doc = frame.contentDocument;
+            const win = frame.contentWindow;
+            await wait(
+              () =>
+                doc.querySelector(".folio") &&
+                !doc.querySelector(".loading-state"),
+            );
+            const prefix = `${width} ${path}`;
+            check(
+              `${prefix}: no sound control`,
+              !doc.querySelector("[data-sound-toggle],.sound-toggle"),
+            );
+            check(
+              `${prefix}: no sound-control layout reservation`,
+              !win
+                .getComputedStyle(doc.querySelector(".folio"))
+                .getPropertyValue("--sound-left"),
+            );
+            check(
+              `${prefix}: audio requested by mount`,
+              win.performance
+                .getEntriesByType("resource")
+                .some((r) => /\/audio\/.*\.mp3/.test(r.name)),
+            );
+            if (path === "/works/worldmaker") {
+              check(
+                `${prefix}: close keeps initial focus`,
+                doc.activeElement ===
+                  doc.querySelector(".case-toolbar>.quiet-button"),
+              );
+              doc.querySelector(".case-media button").click();
+              await wait(() => doc.querySelector(".image-viewer[open]"));
+              check(
+                `${prefix}: viewer has no sound control`,
+                !doc.querySelector("[data-sound-toggle],.sound-toggle"),
+              );
+              check(
+                `${prefix}: viewer toolbar stays within viewport`,
+                doc.querySelector(".viewer-toolbar").getBoundingClientRect()
+                  .right <=
+                  width + 1,
+              );
+            }
+          }
+        }
+        frame.src = "about:blank";
+        report.textContent = JSON.stringify({ done: true, results }, null, 2);
+      } catch (error) {
+        report.textContent = JSON.stringify(
+          { done: true, results, error: String(error) },
+          null,
+          2,
+        );
+      }
+    };
+  </script>
+</html>

@@ -5,6 +5,7 @@ import { DitherPass } from "./dither";
 import { createEmblem, createFlower, createKoi, createLeaf } from "./geometry";
 import type { Emblem } from "./emblems";
 import { KoiWake } from "./wake";
+import { SurfaceWake } from "./surface-wake";
 import { createGuide, stepGuide, type GuideLeaf } from "./guide";
 import { POND_DEPTH_SCALE, setPondLayer } from "./depth";
 import { Journey } from "./journey";
@@ -181,6 +182,7 @@ export class PondScene {
   private sunlight = new THREE.DirectionalLight("#fffdf8", 2.2);
   private root = new THREE.Group();
   private wake = new KoiWake(64, SIN);
+  private contactWater = new SurfaceWake(20, SIN);
   private wakeView = 0;
   private leaves: Leaf[] = [];
   private galleryLeaves: Leaf[] = [];
@@ -321,10 +323,13 @@ export class PondScene {
       for (const leaf of this.guideLeaves) leaf.y *= scale;
       this.guide.y *= scale;
       this.wake.reset();
+      this.contactWater.reset();
       return;
     }
     this.root.remove(this.wake.group);
+    this.root.remove(this.contactWater.group);
     this.wake.reset();
+    this.contactWater.reset();
     this.wakeView = 0;
     this.tapDisturbance = null;
     disposeObject(this.root);
@@ -360,7 +365,10 @@ export class PondScene {
     this.journey.resize(width, destinationScroll, origin);
     this.scroll = this.journey.scroll;
     this.root.add(this.wake.group);
+    this.root.add(this.contactWater.group);
     setPondLayer(this.wake.group, 1);
+    setPondLayer(this.contactWater.group, 2);
+    this.seam.bind(this.contactWater.group, "pond");
     this.fish.forEach((fish) => setPondLayer(fish.group, 0));
     this.leaves
       .filter((leaf) => !leaf.group.userData.galleryDecoration)
@@ -711,6 +719,8 @@ export class PondScene {
     const changedFish = this.selected !== state.selected;
     this.selected = state.selected;
     this.detail = Boolean(state.detail);
+    if (state.page !== "pond") this.contactWater.input(0, 0, false, 0);
+    if (this.detail) this.contactWater.reset();
     if (state.page !== "pond") this.tapDisturbance = null;
     this.focused = null;
     this.hovered = null;
@@ -734,37 +744,73 @@ export class PondScene {
   setPointer(x: number, y: number, active: boolean) {
     if (active) this.tapDisturbance = null;
     this.pointer = { x, y, active };
+    this.contactWater.input(
+      x + this.journey.x,
+      y,
+      active && !this.detail && !this.journey.moving && this.progress < 0.08,
+      performance.now() / 1000,
+    );
+    return (
+      active && !this.detail && this.progress < 0.7 && this.partingAt(x, y)
+    );
+  }
+  private partingAt(x: number, y: number) {
+    const worldX = x + this.journey.x;
+    // Match the spring footprint after leaves have already exposed the water.
+    return (
+      this.leaves.some(
+        (leaf) =>
+          leaf.group.visible &&
+          !leaf.group.userData.galleryDecoration &&
+          Math.hypot(
+            (leaf.base.x - worldX) / leaf.radius,
+            (leaf.base.y - y) / (leaf.radius * SIN),
+          ) < 1.65,
+      ) ||
+      this.flowers.some(
+        (flower) =>
+          flower.object.visible &&
+          !flower.object.userData.galleryDecoration &&
+          Math.hypot(
+            (flower.base.x + flower.center.x - worldX) / flower.reach.x,
+            (flower.base.y + flower.center.y - y) / flower.reach.y,
+          ) < 1.65,
+      )
+    );
+  }
+  private plantAt(x: number, y: number) {
+    return (
+      isVisiblePondLeafHit(
+        { x, y },
+        this.leaves.map((leaf) => ({
+          polygon: leaf.polygon,
+          visible: leaf.group.visible,
+          decoration: Boolean(leaf.group.userData.galleryDecoration),
+        })),
+      ) ||
+      this.flowers.some(
+        (flower) =>
+          flower.object.visible &&
+          !flower.object.userData.galleryDecoration &&
+          Math.hypot(
+            (x -
+              flower.base.x -
+              flower.offset.x -
+              flower.center.x +
+              this.journey.x) /
+              flower.reach.x,
+            (y - flower.base.y - flower.offset.y - flower.center.y) /
+              flower.reach.y,
+          ) <= 1.1,
+      )
+    );
   }
   disturbLeafAt(x: number, y: number) {
     if (
       this.w >= 640 ||
       this.detail ||
       this.progress > 0.08 ||
-      !(
-        isVisiblePondLeafHit(
-          { x, y },
-          this.leaves.map((leaf) => ({
-            polygon: leaf.polygon,
-            visible: leaf.group.visible,
-            decoration: Boolean(leaf.group.userData.galleryDecoration),
-          })),
-        ) ||
-        this.flowers.some(
-          (flower) =>
-            flower.object.visible &&
-            !flower.object.userData.galleryDecoration &&
-            Math.hypot(
-              (x -
-                flower.base.x -
-                flower.offset.x -
-                flower.center.x +
-                this.journey.x) /
-                flower.reach.x,
-              (y - flower.base.y - flower.offset.y - flower.center.y) /
-                flower.reach.y,
-            ) <= 1.1,
-        )
-      )
+      !this.plantAt(x, y)
     )
       return false;
     this.tapDisturbance = createTapDisturbance({ x, y }, this.time);
@@ -1104,6 +1150,8 @@ export class PondScene {
     );
     this.wakeView = waterView;
     this.put(this.wake.group, 0, 0, -3);
+    this.contactWater.step(dt, !this.detail && this.progress < 1, this.reduced);
+    this.put(this.contactWater.group, -shift, 0, -2);
     this.root.updateMatrixWorld(true);
     this.leaves
       .filter((l) => l.group.visible)
@@ -1209,6 +1257,7 @@ export class PondScene {
       guidePosition: { ...this.guide },
       scroll: this.scroll,
       waterRipples: this.wake.activeCount,
+      contactRipples: this.contactWater.activeCount,
     };
   }
   dispose() {

@@ -1,5 +1,7 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+/audio/*
+  Cache-Control: public, max-age=31536000, immutable
 /media-mobile/*
   Cache-Control: public, max-age=31536000, immutable
 /media/*

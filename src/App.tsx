@@ -30,6 +30,7 @@ import { updateFishLabelVisibility } from "./scene/fish-exposure";
 import ImageViewer from "./ImageViewer";
 import { imageSequence } from "./image-viewer-gestures";
 import { useOpacityTransition } from "./use-opacity-transition";
+import { SoundProvider, useOptionalSound, useSound } from "./Sound";
 import {
   clamp,
   galleryCenter,
@@ -186,6 +187,11 @@ export function MediaFigure({
   open: (item: Media) => void;
 }) {
   const [failed, setFailed] = useState(false);
+  const audio = useOptionalSound();
+  const video = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (video.current && audio) return audio.registerVideo(video.current);
+  }, [audio, item.id, failed]);
   return (
     <figure
       className={`case-media ${item.kind === "video" ? "is-film" : ""} ${item.width < item.height ? "is-portrait" : "is-landscape"}`}
@@ -197,6 +203,7 @@ export function MediaFigure({
         </div>
       ) : item.kind === "video" ? (
         <video
+          ref={video}
           controls
           playsInline
           preload="none"
@@ -374,6 +381,7 @@ function ProjectDetail({
   onExited: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const [viewer, setViewer] = useState<number | null>(null);
   const media = mediaFor(project.id);
   const images = imageSequence(media);
@@ -393,6 +401,7 @@ function ProjectDetail({
   useLayoutEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
+    closeButton.current?.focus({ preventScroll: true });
     return () => dialog.close();
   }, []);
   useOpacityTransition(ref, visible, 220, 180, onExited);
@@ -416,6 +425,7 @@ function ProjectDetail({
       <div className="case-toolbar">
         <span>{project.chinese}</span>
         <button
+          ref={closeButton}
           className="quiet-button"
           aria-label="合上这一叶"
           onClick={close}
@@ -478,6 +488,14 @@ function leafHitShape(seed: number) {
   }).join(",")})`;
 }
 export default function App() {
+  return (
+    <SoundProvider>
+      <Portfolio />
+    </SoundProvider>
+  );
+}
+function Portfolio() {
+  const audio = useSound();
   const [nav, setNav] = useState<NavigationState>(initial),
     [size, setSize] = useState({ w: innerWidth, h: innerHeight });
   const [ready, setReady] = useState(false),
@@ -525,6 +543,9 @@ export default function App() {
     renderedScroll = useRef(-1),
     initialGallerySync = useRef(true);
   navRef.current = nav;
+  useEffect(() => {
+    audio.setPondActive(nav.page === "pond" && !detail);
+  }, [audio, nav.page, detail]);
   const navigate = useCallback((next: NavigationState, replace = false) => {
     return commitNavigation(
       history,
@@ -539,12 +560,13 @@ export default function App() {
   }, []);
   const enter = useCallback(
     (id: ProjectId) => {
+      audio.select();
       preloadProjectCover(id);
       const x = indexOf(id) * galleryStride(innerWidth);
       scrollMemory.current = x;
       navigate({ page: "works", selected: id, detail: null });
     },
-    [navigate],
+    [audio, navigate],
   );
   callbacks.current.pick = enter;
   useEffect(() => {
@@ -820,6 +842,7 @@ export default function App() {
   };
   const detailClick = (id: ProjectId) => {
     if (navRef.current.detail === id) return;
+    audio.select();
     preloadProjectCover(id);
     const next: NavigationState = {
       ...navRef.current,
@@ -869,8 +892,10 @@ export default function App() {
         if (
           navRef.current.page === "pond" &&
           shouldTrackPondPointer(e.pointerType, touchPondPointer.current)
-        )
-          scene.current?.setPointer(e.clientX, e.clientY, true);
+        ) {
+          if (scene.current?.setPointer(e.clientX, e.clientY, true))
+            audio.stir();
+        }
       }}
       onPointerLeave={() => {
         if (!touchPondPointer.current)
@@ -906,8 +931,11 @@ export default function App() {
           e.pointerType === "touch" &&
           navRef.current.page === "pond" &&
           !target.closest("button,a");
-        if (touchPondPointer.current)
-          scene.current?.setPointer(e.clientX, e.clientY, true);
+        if (
+          touchPondPointer.current &&
+          scene.current?.setPointer(e.clientX, e.clientY, true)
+        )
+          audio.stir();
       }}
       onPointerUp={(e) => {
         const target = e.target as Element,
@@ -927,6 +955,7 @@ export default function App() {
             e.pointerType === "touch" &&
             wasPondTouch &&
             Boolean(scene.current?.disturbLeafAt(e.clientX, e.clientY));
+          if (disturbedLeaf) audio.stir();
           if (!disturbedLeaf) scene.current?.selectAt(e.clientX, e.clientY);
         }
         if (projectPointer.current?.pointerId === e.pointerId) {
