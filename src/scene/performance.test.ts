@@ -106,6 +106,51 @@ const clockFor = () => {
   };
 };
 
+describe("mobile home foliage composition", () => {
+  it.each([320, 390, 430])(
+    "breaks vertical leaf columns without enlarging the foliage budget at %spx",
+    (width) => {
+      const pond = create("pond", width, true);
+      const leaves = (
+        pond as unknown as {
+          leaves: {
+            base: { x: number; y: number };
+            radius: number;
+            group: THREE.Group;
+          }[];
+        }
+      ).leaves.filter((leaf) => !leaf.group.userData.galleryDecoration);
+      const visible = leaves.filter(
+        (leaf) =>
+          leaf.base.y > 0 &&
+          leaf.base.y < 700 &&
+          leaf.base.x > -width * 0.1 &&
+          leaf.base.x < width * 1.1,
+      );
+      const aligned = visible.map(
+        (leaf) =>
+          visible.filter(
+            (other) => Math.abs(other.base.x - leaf.base.x) < width * 0.095,
+          ).length,
+      );
+      // A <= 19%-wide vertical strip must not collect a repeated eight-row
+      // column; changing only a few pixels of jitter should still fail.
+      expect(Math.max(...aligned)).toBeLessThanOrEqual(5);
+      const radii = visible.map((leaf) => leaf.radius);
+      expect(Math.max(...radii) / Math.min(...radii)).toBeGreaterThan(1.65);
+      expect(Math.max(...radii)).toBeLessThan(width * 0.29);
+      expect(leaves.length).toBeLessThanOrEqual(24);
+      const inscription = leaves.find(
+        (leaf) => leaf.group.name === "portfolio-inscription-leaf",
+      )!;
+      expect(inscription.base.x).toBeGreaterThan(width * 0.35);
+      expect(inscription.base.x).toBeLessThan(width * 0.65);
+      expect(inscription.base.y).toBeLessThan(700 * 0.4);
+      pond.dispose();
+    },
+  );
+});
+
 describe("home contact waves in the real scene", () => {
   it("captures a between-frame phone tap under plants and reuses the resource on resize", () => {
     const pond = create();

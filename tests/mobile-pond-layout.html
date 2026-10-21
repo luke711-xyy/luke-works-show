@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>手机荷塘错落构图验收</title>
+  <style>
+    body {
+      margin: 0;
+      color: #292c29;
+      background: #ead3a0;
+      font: 14px system-ui;
+    }
+    nav {
+      display: flex;
+      gap: 12px;
+      padding: 10px 18px;
+      align-items: center;
+      justify-content: center;
+    }
+    button {
+      min-height: 40px;
+    }
+    #views {
+      display: flex;
+      gap: 20px;
+      padding: 0 18px;
+      justify-content: center;
+    }
+    .view {
+      flex: none;
+    }
+    .label {
+      margin: 0 0 8px;
+    }
+    iframe {
+      display: block;
+      border: 0;
+    }
+    .phone iframe {
+      zoom: 0.76;
+    }
+    pre {
+      white-space: pre-wrap;
+      margin: 20px;
+    }
+  </style>
+  <nav>
+    <button id="baseline">记录桌面基准</button>
+    <button id="run">检查手机布局与交互</button>
+    <button id="preview">预览 320／390／430px</button>
+    <span id="summary">真实应用尺寸预览，非真机截图</span>
+  </nav>
+  <div id="views"></div>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    const views = document.querySelector("#views"),
+      report = document.querySelector("#report"),
+      summary = document.querySelector("#summary");
+    let baseline = null,
+      results = [];
+    const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const waitFor = async (test) => {
+      for (let i = 0; i < 400; i++) {
+        if (test()) return;
+        await pause(30);
+      }
+      throw Error("等待真实荷塘超时");
+    };
+    const load = async (width, height, keep = false) => {
+      if (!keep) views.replaceChildren();
+      const box = document.createElement("section");
+      box.className = "view" + (width < 640 ? " phone" : "");
+      const label = document.createElement("p");
+      label.className = "label";
+      label.textContent = `${width} × ${height} · ${width < 640 ? "手机视口" : "桌面视口"}`;
+      const frame = document.createElement("iframe");
+      frame.title = `${width}px 真实荷塘`;
+      frame.style.width = `${width}px`;
+      frame.style.height = `${height}px`;
+      box.append(label, frame);
+      views.append(box);
+      frame.src = "/?debug=1&seed=711";
+      await new Promise((resolve) => (frame.onload = resolve));
+      await waitFor(
+        () =>
+          frame.contentWindow.__pond &&
+          !frame.contentDocument.querySelector(".loading-state"),
+      );
+      return {
+        frame,
+        doc: frame.contentDocument,
+        win: frame.contentWindow,
+        pond: frame.contentWindow.__pond,
+      };
+    };
+    const leaves = (pond) =>
+      pond.leaves.filter((leaf) => !leaf.group.userData.galleryDecoration);
+    const snapshot = (pond) =>
+      leaves(pond).map((leaf) => ({
+        x: leaf.base.x,
+        y: leaf.base.y,
+        radius: leaf.radius,
+        rotation: leaf.rotation,
+      }));
+    const check = (name, pass, detail) => {
+      results.push({ name, pass: Boolean(pass), ...(detail && { detail }) });
+      report.textContent = JSON.stringify({ done: false, results }, null, 2);
+    };
+    document.querySelector("#baseline").onclick = async () => {
+      const { pond } = await load(1280, 720);
+      baseline = snapshot(pond);
+      summary.textContent = "已记录 24 片桌面叶的坐标、大小和朝向";
+      report.textContent = JSON.stringify({ baseline }, null, 2);
+    };
+    document.querySelector("#preview").onclick = async () => {
+      views.replaceChildren();
+      for (const [width, height] of [
+        [320, 700],
+        [390, 780],
+        [430, 820],
+      ])
+        await load(width, height, true);
+      summary.textContent = "真实应用尺寸预览，非真机截图";
+    };
+    document.querySelector("#run").onclick = async () => {
+      results = [];
+      try {
+        for (const [width, height] of [
+          [320, 700],
+          [360, 760],
+          [390, 780],
+          [430, 820],
+        ]) {
+          const { doc, win, pond } = await load(width, height);
+          const foliage = leaves(pond),
+            visible = foliage.filter(
+              (leaf) =>
+                leaf.base.x > -width * 0.1 &&
+                leaf.base.x < width * 1.1 &&
+                leaf.base.y > 0 &&
+                leaf.base.y < height,
+            );
+          const aligned = Math.max(
+            ...visible.map(
+              (leaf) =>
+                visible.filter(
+                  (other) =>
+                    Math.abs(other.base.x - leaf.base.x) < width * 0.095,
+                ).length,
+            ),
+          );
+          const radii = visible.map((leaf) => leaf.radius);
+          check(`${width}: no repeated vertical leaf column`, aligned <= 5, {
+            aligned,
+          });
+          check(
+            `${width}: distinct large and small foliage without larger maximum leaves`,
+            Math.max(...radii) / Math.min(...radii) > 1.65 &&
+              Math.max(...radii) < width * 0.29,
+            { min: Math.min(...radii), max: Math.max(...radii) },
+          );
+          check(
+            `${width}: foliage resources remain bounded`,
+            foliage.length <= 24 &&
+              pond.flowers.filter(
+                (flower) => !flower.object.userData.galleryDecoration,
+              ).length === 4,
+          );
+          check(
+            `${width}: all eight project entries remain semantic`,
+            doc.querySelectorAll(".fish-entry").length === 8,
+          );
+          const inscription = foliage.find(
+            (leaf) => leaf.group.name === "portfolio-inscription-leaf",
+          );
+          check(
+            `${width}: inscription stays in upper center`,
+            inscription.base.x > width * 0.35 &&
+              inscription.base.x < width * 0.65 &&
+              inscription.base.y < height * 0.4 &&
+              win.getComputedStyle(doc.querySelector(".pond-inscription"))
+                .visibility === "visible",
+          );
+          const rest = { ...inscription.offset },
+            target = doc.querySelector(".folio"),
+            text = doc
+              .querySelector(".pond-inscription")
+              .getBoundingClientRect();
+          const point = {
+            clientX: text.x + text.width / 2 - 20,
+            clientY: text.y + text.height / 2,
+          };
+          for (const type of ["pointerdown", "pointerup"])
+            target.dispatchEvent(
+              new win.PointerEvent(type, {
+                ...point,
+                bubbles: true,
+                pointerType: "touch",
+                pointerId: 4,
+                isPrimary: true,
+                buttons: type === "pointerdown" ? 1 : 0,
+              }),
+            );
+          await pause(250);
+          check(
+            `${width}: tap parts the title leaf and retains its hold`,
+            Math.hypot(
+              inscription.offset.x - rest.x,
+              inscription.offset.y - rest.y,
+            ) > 8,
+          );
+          const start = { ...foliage[11].offset };
+          target.dispatchEvent(
+            new win.PointerEvent("pointerdown", {
+              clientX: 10,
+              clientY: height * 0.5,
+              pointerType: "touch",
+              pointerId: 5,
+              bubbles: true,
+              buttons: 1,
+            }),
+          );
+          for (let x = 20; x <= width * 0.7; x += 20) {
+            target.dispatchEvent(
+              new win.PointerEvent("pointermove", {
+                clientX: x,
+                clientY: height * 0.53,
+                pointerType: "touch",
+                pointerId: 5,
+                bubbles: true,
+                buttons: 1,
+              }),
+            );
+            await pause(20);
+          }
+          check(
+            `${width}: a held touch sweep parts encountered foliage`,
+            Math.hypot(
+              foliage[11].offset.x - start.x,
+              foliage[11].offset.y - start.y,
+            ) > 5,
+          );
+          target.dispatchEvent(
+            new win.PointerEvent("pointerup", {
+              clientX: width * 0.7,
+              clientY: height * 0.53,
+              pointerType: "touch",
+              pointerId: 5,
+              bubbles: true,
+              buttons: 0,
+            }),
+          );
+          doc.querySelector('[aria-label="跟随锦鲤，查看MOSIC"]').click();
+          await waitFor(
+            () => pond.debug().progress === 1 && !pond.debug().travelling,
+          );
+          doc.querySelector('[data-project="mosic"]').click();
+          await waitFor(() => doc.querySelector(".project-detail[open]"));
+          check(
+            `${width}: navigation still opens complete project details`,
+            doc.querySelector("#case-title")?.textContent === "MOSIC" &&
+              !doc.querySelector(".image-viewer"),
+          );
+          doc.querySelector('[aria-label="合上这一叶"]').click();
+          await waitFor(() => !doc.querySelector(".project-detail"));
+          doc.querySelector(".works-toolbar button").click();
+          await waitFor(
+            () => pond.debug().progress === 0 && !pond.debug().travelling,
+          );
+          check(
+            `${width}: closing and returning keeps the same foliage`,
+            foliage.every((leaf, i) => leaves(pond)[i] === leaf),
+          );
+        }
+        const { pond } = await load(1280, 720);
+        if (baseline)
+          check(
+            "desktop coordinates, sizes and rotations are unchanged",
+            JSON.stringify(snapshot(pond)) === JSON.stringify(baseline),
+          );
+        else check("desktop baseline must be recorded before editing", false);
+        report.textContent = JSON.stringify(
+          {
+            done: true,
+            passed: results.filter((r) => r.pass).length,
+            total: results.length,
+            results,
+          },
+          null,
+          2,
+        );
+        summary.textContent = `${results.filter((r) => r.pass).length}／${results.length} 项通过`;
+      } catch (error) {
+        report.textContent = JSON.stringify(
+          { done: true, error: String(error), results },
+          null,
+          2,
+        );
+      }
+    };
+    await document.querySelector("#preview").onclick();
+  </script>
+</html>

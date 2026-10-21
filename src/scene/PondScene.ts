@@ -480,19 +480,38 @@ export class PondScene {
       [0.78, 1.08, 0.18],
       [1.04, 1.02, 0.19],
     ];
+    // Authored clusters, not jittered rows: unequal gaps and small companion
+    // leaves break the three vertical bands while preserving the same budget.
+    // Index 7 remains the upper-center inscription leaf; edge foliage still
+    // exists beyond the viewport for the continuous transition to the works.
     const arrangement = mobile
-      ? Array.from({ length: 24 }, (_, i) => [
-          (i % 3) * 0.49 - 0.02 + Math.sin(i * 2) * 0.055,
-          Math.floor(i / 3) * 0.153 - 0.02,
-          0.28 + Math.sin(i) * 0.03,
-        ])
+      ? [
+          [-0.1, -0.03, 0.29],
+          [0.29, -0.07, 0.25],
+          [0.86, 0.02, 0.3],
+          [0.08, 0.16, 0.24],
+          [0.74, 0.135, 0.2],
+          [1.04, 0.24, 0.275],
+          [-0.15, 0.38, 0.255],
+          [0.53, 0.286, 0.3],
+          [0.23, 0.375, 0.17],
+          [0.96, 0.44, 0.3],
+          [0.63, 0.43, 0.24],
+          [0.07, 0.535, 0.28],
+          [0.45, 0.565, 0.16],
+          [1.14, 0.65, 0.29],
+          [0.78, 0.62, 0.25],
+          [0.34, 0.74, 0.27],
+          [-0.06, 0.82, 0.24],
+          [0.94, 0.85, 0.28],
+          [-0.18, 0.99, 0.26],
+          [0.64, 1.12, 0.22],
+          [1.12, 0.975, 0.23],
+          [0.2, 1.06, 0.29],
+          [0.47, 1.24, 0.18],
+          [0.98, 1.17, 0.26],
+        ]
       : desktop;
-    if (mobile) {
-      arrangement[18][0] = -0.15;
-      arrangement[19][1] = 0.79;
-      arrangement[20][0] = 1.15;
-      arrangement[22][1] = 1.24;
-    }
     arrangement.forEach(([x, y, r], i) =>
       this.addLeaf(
         {

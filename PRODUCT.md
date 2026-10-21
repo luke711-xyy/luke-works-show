@@ -21,6 +21,7 @@ Let visitors discover eight real projects through an interactive lotus pond, fol
 ## Capabilities and Constraints
 
 - Eight bounded, continuously wandering koi represent the eight supplied projects. They avoid each other and are often obscured by dense leaves.
+- The compact home pond uses 24 deliberately staggered leaf placements with mixed sizes and irregular water gaps, not repeated vertical columns. The desktop composition, flower positions, title-leaf interaction and resource budget remain unchanged.
 - On compact/touch home layouts, project names fade in only once a meaningful portion of the fish body is exposed; hover-only desktops retain hover disclosure. Keyboard and non-WebGL fallback entry names remain available.
 - Pointer or touch motion parts home leaves, lotus blooms and buds as whole objects. A phone tap holds the parting briefly before a spring return; gallery decoration flowers remain unchanged. Selecting a visible koi takes the visitor to the corresponding project in the adjacent horizontal collection.
 - Home contact waves provide water feedback independently of koi wakes. Tap, drag and release share one continuously velocity-shaped wave family: an elliptical resting ripple sharpens in the movement direction, then propagates and decays without switching effects. The pooled, low-update-rate mesh stays underneath plants and supports reduced motion.
