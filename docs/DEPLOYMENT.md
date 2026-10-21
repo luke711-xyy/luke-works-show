@@ -10,6 +10,17 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 手机首页错落荷叶布局发布
+
+- 运行代码提交：`6fdae54cd84615e5d91140b964ed1c994451bd99`，已推送 GitHub `main`；本发布记录另作纯文档提交。
+- 不变部署地址：https://d04e8748.luke-works-show.pages.dev/。正式入口仍为 https://works.luke-xu.asia/，默认平台地址仍可用。
+- 新入口 `index-BiSUZf7O.js`、场景包 `PondScene-Do1BQ1zm.js`；样式仍为 `index-Krt4pjWN.css`。
+- 仅调整宽度小于 640px 的首页 24 片荷叶位置与相对尺寸，打散原有三列排列，改为大小交错的斜向叶群与不规则水面留白；不增加模型或依赖。桌面位置、尺寸和旋转逐项对照不变，题字叶片、花苞、荷花、锦鲤及拨叶交互保留。
+- 本发布轮重新执行 TypeScript、生产构建、格式及差异检查，全部通过。实施阶段三项新增布局回归及实际应用浏览器夹具 37/37 检查已通过，覆盖 320／360／390／430px、触摸拨叶、详情往返及桌面比较；这些是尺寸与合成触摸验证，不是真机认证。本轮读取既有报告确认结果，未重新启动动态浏览器预览。
+- 此前完整测试曾为 200/201，通过项之外的一项既有媒体完整性检查发生 5 秒超时，随后以 `VIPS_CONCURRENCY=1` 独立运行通过。用户说明电脑正在训练并要求忽略负载相关超时，本发布轮未重跑完整测试或昂贵媒体检查，未修改测试超时或干预训练进程。
+- 正式域名、默认平台域名及不变部署域名的首页、Worldmaker 查询链接和 Huazhi 深链接共 9 条 HTTP 200，均引用新入口；每个域名的 7 个 JS/CSS 与本地构建逐字节一致。图片、字体及样式未改，未修改 DNS、域名绑定或安全策略。
+- 实施阶段证据 `.impeccable/review/mobile-pond-after.png`、`mobile-pond-layout-checks.json`、`mobile-pond-desktop-baseline.json` 与 `mobile-pond-desktop-after.json` 保留在本地；桌面前后快照完全一致。测试夹具与验收证据不进入静态部署产物。
+
 ## 2026-10-21 长卷蓝框修复与全站内容交互保护发布
 
 - 运行代码提交：`cf69ba0996ac056d8632564acef1d07c55b05841`，已推送 GitHub `main`；本发布记录另作纯文档提交。
