@@ -44,6 +44,7 @@ The original `各项目亮点.docx`, 23 supplied images and one 73-second video 
 - Explain design decisions through real product evidence.
 - Preserve motion continuity and predictable navigation.
 - Keep meaningful text semantic and readable.
+- Per the owner's content-interaction policy, disable browser text selection, copying, long-press callouts and native content dragging across all three levels. Preserve semantic text, keyboard navigation, image zoom and normal gestures; this is an interaction policy, not access control or protection against screenshots/source extraction.
 - Build and inspect a live visual sample before expanding the full scene.
 
 ## Accessibility & Inclusion

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>内容保护与长卷焦点回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    nav {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+    }
+    button {
+      min-height: 44px;
+    }
+    iframe {
+      display: block;
+      width: 390px;
+      height: 700px;
+      border: 0;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
+  <nav>
+    <button id="run">检查禁选、复制与详情往返</button>
+    <button id="preview">预览手机长卷</button>
+  </nav>
+  <iframe title="真实内容交互"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    const frame = document.querySelector("iframe"),
+      report = document.querySelector("#report");
+    const pause = () => new Promise((resolve) => setTimeout(resolve, 40));
+    const waitFor = async (test) => {
+      for (let i = 0; i < 400; i++) {
+        if (test()) return;
+        await pause();
+      }
+      throw Error("等待真实界面超时");
+    };
+    const load = async (width) => {
+      frame.style.width = `${width}px`;
+      frame.src = "/works?focus=huazhi&debug=1";
+      await new Promise((resolve) => (frame.onload = resolve));
+      await waitFor(
+        () =>
+          frame.contentWindow.__pond &&
+          !frame.contentDocument.querySelector(".loading-state") &&
+          frame.contentWindow.__pond.debug().progress === 1,
+      );
+    };
+    let results = [];
+    const check = (name, pass, detail) => {
+      results.push({ name, pass: Boolean(pass), ...(detail && { detail }) });
+      report.textContent = JSON.stringify({ done: false, results }, null, 2);
+    };
+    const guards = (width, doc, win, target, label) => {
+      for (const type of [
+        "selectstart",
+        "copy",
+        "cut",
+        "contextmenu",
+        "dragstart",
+      ]) {
+        const event = new win.Event(type, { bubbles: true, cancelable: true });
+        target.dispatchEvent(event);
+        check(
+          `${width}/${label}: ${type} is cancelled`,
+          event.defaultPrevented,
+        );
+      }
+      const style = win.getComputedStyle(target);
+      check(
+        `${width}/${label}: selection and touch callout are disabled`,
+        style.userSelect === "none" &&
+          style.getPropertyValue("-webkit-user-select") === "none" &&
+          (!win.CSS.supports("-webkit-touch-callout", "none") ||
+            style.getPropertyValue("-webkit-touch-callout") === "none"),
+        {
+          userSelect: style.userSelect,
+          callout: style.getPropertyValue("-webkit-touch-callout"),
+        },
+      );
+    };
+    document.querySelector("#preview").onclick = async () => {
+      await load(390);
+      frame.contentDocument
+        .querySelector(".gallery-scroll")
+        .focus({ preventScroll: true });
+    };
+    document.querySelector("#run").onclick = async () => {
+      results = [];
+      try {
+        for (const width of [390, 1280]) {
+          await load(width);
+          const doc = frame.contentDocument,
+            win = frame.contentWindow;
+          const gallery = doc.querySelector(".gallery-scroll");
+          guards(
+            width,
+            doc,
+            win,
+            doc.querySelector(".works-title"),
+            "collection",
+          );
+          for (let cycle = 0; cycle < 3; cycle++) {
+            // The 3D emblem can leave the scroll region, not a DOM button,
+            // focused. A native dialog restores exactly that opener on close.
+            gallery.focus({ preventScroll: true });
+            const before = win.getComputedStyle(gallery);
+            check(
+              `${width}/${cycle}: focused scroll container has no native box`,
+              before.outlineStyle === "none",
+              {
+                outline: before.outline,
+                rect: gallery.getBoundingClientRect().toJSON(),
+              },
+            );
+            const project = doc.querySelector('[data-project="huazhi"]');
+            project.click();
+            await waitFor(() => doc.querySelector(".project-detail[open]"));
+            if (!cycle) {
+              const text = doc.querySelector(".case-summary");
+              guards(width, doc, win, text, "detail text");
+              const image = doc.querySelector(".image-open img");
+              guards(width, doc, win, image, "detail image");
+              check(
+                `${width}: image native dragging is disabled`,
+                win
+                  .getComputedStyle(image)
+                  .getPropertyValue("-webkit-user-drag") === "none",
+              );
+              const selection = doc.getSelection();
+              selection.selectAllChildren(text);
+              await pause();
+              check(
+                `${width}: any stale text range is cleared`,
+                selection.rangeCount === 0 && selection.toString() === "",
+              );
+              doc.querySelector(".image-open").click();
+              await waitFor(() => doc.querySelector(".image-viewer[open]"));
+              guards(
+                width,
+                doc,
+                win,
+                doc.querySelector(".image-viewer img"),
+                "image viewer",
+              );
+              doc.querySelector('[aria-label="放大图片"]').click();
+              await pause();
+              check(
+                `${width}: image zoom remains available`,
+                doc.querySelector(".image-viewer").textContent.includes("125%"),
+              );
+              doc.querySelector('[aria-label="关闭图片"]').click();
+              await waitFor(() => !doc.querySelector(".image-viewer"));
+            }
+            doc.querySelector('[aria-label="合上这一叶"]').click();
+            await waitFor(() => !doc.querySelector(".project-detail"));
+            check(
+              `${width}/${cycle}: focus restoration has no native blue rectangle`,
+              doc.activeElement === gallery &&
+                win.getComputedStyle(gallery).outlineStyle === "none",
+              {
+                active: doc.activeElement.className,
+                outline: win.getComputedStyle(gallery).outline,
+              },
+            );
+          }
+          const leaf = doc.querySelector('[data-project="huazhi"]');
+          leaf.focus({ preventScroll: true });
+          check(
+            `${width}: keyboard project cue is retained`,
+            win.getComputedStyle(
+              leaf.querySelector(".project-leaf-title"),
+              "::after",
+            ).borderBottomStyle === "solid",
+          );
+          const previous = gallery.scrollLeft;
+          gallery.dispatchEvent(
+            new win.KeyboardEvent("keydown", {
+              key: "ArrowRight",
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+          await waitFor(() => gallery.scrollLeft > previous + 10);
+          check(
+            `${width}: horizontal keyboard browsing still works`,
+            gallery.scrollLeft > previous + 10,
+          );
+          doc.querySelector(".works-toolbar button").click();
+          await waitFor(() => win.__pond.debug().progress === 0);
+          guards(width, doc, win, doc.querySelector(".pond-hint"), "home");
+        }
+        report.textContent = JSON.stringify(
+          {
+            done: true,
+            passed: results.filter((r) => r.pass).length,
+            total: results.length,
+            results,
+          },
+          null,
+          2,
+        );
+      } catch (error) {
+        report.textContent = JSON.stringify(
+          { done: true, error: String(error), results },
+          null,
+          2,
+        );
+      }
+    };
+    await load(390);
+  </script>
+</html>

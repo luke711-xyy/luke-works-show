@@ -494,6 +494,29 @@ function leafHitShape(seed: number) {
   }).join(",")})`;
 }
 export default function App() {
+  useEffect(() => {
+    const preventContentAction = (event: Event) => event.preventDefault();
+    const clearSelection = () => {
+      const selection = document.getSelection();
+      if (selection?.rangeCount) selection.removeAllRanges();
+    };
+    const blockedEvents = [
+      "selectstart",
+      "copy",
+      "cut",
+      "contextmenu",
+      "dragstart",
+    ] as const;
+    for (const type of blockedEvents)
+      document.addEventListener(type, preventContentAction, true);
+    document.addEventListener("selectionchange", clearSelection);
+    clearSelection();
+    return () => {
+      for (const type of blockedEvents)
+        document.removeEventListener(type, preventContentAction, true);
+      document.removeEventListener("selectionchange", clearSelection);
+    };
+  }, []);
   return (
     <SoundProvider>
       <Portfolio />

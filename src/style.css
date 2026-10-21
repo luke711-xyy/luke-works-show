@@ -26,6 +26,11 @@
 }
 * {
   box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
 }
 html,
 body,
@@ -34,10 +39,6 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
-}
-button,
-a {
-  -webkit-tap-highlight-color: transparent;
 }
 button,
 input {
@@ -72,8 +73,8 @@ a:focus-visible {
   box-shadow: inset 0 -1px 0 var(--focus-ink, var(--ink));
 }
 ::selection {
-  color: #f7edcf;
-  background: #6b4a61;
+  color: inherit;
+  background: transparent;
 }
 svg {
   width: 22px;
@@ -356,6 +357,10 @@ svg {
 }
 .gallery-scroll::-webkit-scrollbar {
   display: none;
+}
+.gallery-scroll:focus {
+  /* Native dialog close restores this scroll region after a 3D emblem tap. */
+  outline: none;
 }
 .folio[data-travelling="true"] .gallery-scroll {
   pointer-events: none;
