@@ -10,6 +10,16 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 长卷蓝框修复与全站内容交互保护发布
+
+- 运行代码提交：`cf69ba0996ac056d8632564acef1d07c55b05841`，已推送 GitHub `main`；本发布记录另作纯文档提交。
+- 不变部署地址：https://0ae35c18.luke-works-show.pages.dev/。正式入口仍为 https://works.luke-xu.asia/，默认平台地址仍可用。
+- 新入口 `index-DRkq6xbx.js`、场景包 `PondScene-C8ptDlav.js`、样式 `index-Krt4pjWN.css`。
+- 仅取消横向长卷滚动容器恢复焦点后的默认 outline，避免上下蓝线；保留焦点与既有键盘提示。全站统一禁选、禁复制／剪切、禁上下文长按菜单和原生内容拖拽，并清除残留选区；普通点击、滚动、图片缩放和语义内容不变。这是浏览器内交互策略，不是防截图或源码提取机制。
+- 发布前完整重跑 198 项测试（25 文件）、TypeScript、生产构建、格式及差异检查通过。实际应用 390／1280px 的 82 项内容／详情往返回归重新运行全部通过；前一实施轮的既有 53 项全控件焦点回归也全部通过。尺寸与合成事件检查不等同于真机微信／iOS Safari 认证。
+- 正式域名、默认平台域名及不变部署域名的首页、Worldmaker 查询链接和 Huazhi 深链接共 9 条 HTTP 200，均引用新入口；每个域名 7 个 JS/CSS 与本地构建逐字节一致，开屏字体也通过哈希检查。24 个源素材哈希、23 张清晰图像素一致性及 48 个正式域名媒体 URL 检查通过。
+- 正式网站读回新入口，主动聚焦 `.gallery-scroll` 后 outline 为 `none`，长卷标题和案例正文 `user-select` 为 `none`，点按高亮透明。Huazhi 详情可正常打开，主动点图进入 01/03／100%，放大至 125%，关闭图片与详情返回同一长卷；再次聚焦滚动容器仍无蓝框，控制台无 warn/error。截图 `.impeccable/review/content-guard-release-live.png` 为实际正式网站，未公开发布验收夹具或截图；未改 DNS、域名绑定、认证或安全策略。
+
 ## 2026-10-21 开屏诗句字体与居中修复发布
 
 - 运行代码提交：`be0aba44c27a508fd41e51a1ba62e5f196d80e3b`，已推送 GitHub `main`；本发布记录另作纯文档提交。
