@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>案例标题：字母下沿完整性回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    nav {
+      display: flex;
+      gap: 16px;
+      padding: 12px;
+    }
+    button {
+      min-height: 44px;
+    }
+    iframe {
+      display: block;
+      width: 1280px;
+      height: 640px;
+      border: 0;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
+  <nav>
+    <button id="run">检查全部项目标题与回退字体</button>
+    <button id="desktop">预览电脑标题</button>
+    <button id="mobile">预览手机标题</button>
+  </nav>
+  <iframe title="使用实际样式与字体的案例标题"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    import { projects } from "/src/data/projects.ts";
+    const frame = document.querySelector("iframe");
+    const report = document.querySelector("#report");
+    const css = await fetch("/src/style.css?direct").then((r) => r.text());
+    const samples = [
+      ...projects,
+      { title: "Typography pqgy", chinese: "字母下伸部压力测试" },
+    ];
+    const mount = async (width, fallback = false, preview = false) => {
+      frame.style.width = `${width}px`;
+      frame.src = "about:blank";
+      await new Promise((resolve) => (frame.onload = resolve));
+      const doc = frame.contentDocument;
+      const style = doc.createElement("style");
+      style.textContent = css;
+      doc.head.append(style);
+      if (fallback) doc.documentElement.style.setProperty("--serif", "serif");
+      const scroll = doc.createElement("div");
+      scroll.className = "case-scroll";
+      const content = doc.createElement("article");
+      content.className = "case-content";
+      for (const sample of preview
+        ? samples.filter((p) => p.id === "teleprompter" || p.id === "huazhi")
+        : samples) {
+        const header = doc.createElement("header");
+        header.className = "case-heading";
+        const title = doc.createElement("h1");
+        title.textContent = sample.title;
+        // A zero-height inline box exposes the real final-line baseline,
+        // without replacing the text or changing the production font metrics.
+        const baseline = doc.createElement("span");
+        baseline.style.cssText =
+          "display:inline-block;width:0;height:0;vertical-align:baseline";
+        title.append(baseline);
+        const subtitle = doc.createElement("p");
+        subtitle.className = "case-subtitle";
+        subtitle.textContent = sample.chinese;
+        header.append(title, subtitle);
+        content.append(header);
+      }
+      scroll.append(content);
+      doc.body.append(scroll);
+      await doc.fonts.ready;
+      return doc;
+    };
+    const run = async () => {
+      const results = [];
+      for (const width of [320, 390, 640, 768, 1280, 1600]) {
+        for (const fallback of [false, true]) {
+          const doc = await mount(width, fallback);
+          const win = frame.contentWindow;
+          const ctx = doc.createElement("canvas").getContext("2d");
+          for (const title of doc.querySelectorAll(".case-heading h1")) {
+            const style = win.getComputedStyle(title);
+            ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+            const metrics = ctx.measureText(title.textContent);
+            const box = title.getBoundingClientRect();
+            const baseline = title
+              .querySelector("span")
+              .getBoundingClientRect().top;
+            const inkBottom = baseline + metrics.actualBoundingBoxDescent;
+            const inkTop = baseline - metrics.actualBoundingBoxAscent;
+            const subtitle = title.nextElementSibling.getBoundingClientRect();
+            results.push({
+              width,
+              fallback,
+              title: title.textContent,
+              pass:
+                inkBottom <= box.bottom + 0.5 &&
+                inkTop >= box.top - 0.5 &&
+                subtitle.top > inkBottom &&
+                doc.querySelector(".case-scroll").scrollWidth <= width + 1,
+              bottomClearance: +(box.bottom - inkBottom).toFixed(2),
+              topClearance: +(inkTop - box.top).toFixed(2),
+            });
+          }
+        }
+      }
+      report.textContent = JSON.stringify(
+        {
+          done: true,
+          passed: results.filter((r) => r.pass).length,
+          total: results.length,
+          results,
+        },
+        null,
+        2,
+      );
+      await mount(1280, false, true);
+    };
+    document.querySelector("#run").onclick = run;
+    document.querySelector("#desktop").onclick = () => mount(1280, false, true);
+    document.querySelector("#mobile").onclick = () => mount(390, false, true);
+    await mount(1280, false, true);
+  </script>
+</html>

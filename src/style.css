@@ -646,7 +646,10 @@ svg {
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: -0.035em;
-  margin: 0;
+  /* The grain mask clips to this box; reserve ink space for p/g/y descenders
+     without moving the subtitle or loosening multi-line heading spacing. */
+  padding-bottom: 0.2em;
+  margin: 0 0 -0.2em;
   text-wrap: balance;
   mask-image: url("/art/text-grain.png");
   mask-size: 96px 96px;
