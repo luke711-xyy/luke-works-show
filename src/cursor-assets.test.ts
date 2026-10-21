@@ -36,6 +36,17 @@ describe("native koi cursor assets", () => {
     };
     const normal = await raster("koi-cursor");
     const active = await raster("koi-cursor-active");
-    expect(count(active.data)).toBeGreaterThan(count(normal.data) * 1.08);
+    expect(count(active.data)).toBeGreaterThan(count(normal.data) * 1.7);
+    const inkWidth = ({ data, info }: Awaited<ReturnType<typeof raster>>) => {
+      const xs: number[] = [];
+      for (let y = 0; y < info.height; y++)
+        for (let x = 0; x < info.width; x++)
+          if (data[(y * info.width + x) * 4 + 3] > 100) xs.push(x);
+      return Math.max(...xs) - Math.min(...xs) + 1;
+    };
+    expect(inkWidth(normal)).toBeGreaterThanOrEqual(18);
+    expect(inkWidth(normal)).toBeLessThanOrEqual(21);
+    expect(inkWidth(active)).toBeGreaterThanOrEqual(27);
+    expect(inkWidth(active)).toBeLessThanOrEqual(29);
   });
 });

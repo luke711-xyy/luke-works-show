@@ -108,7 +108,7 @@
             doc.activeElement === image,
           );
           doc.querySelector('[aria-label="合上这一叶"]').click();
-          await pause();
+          await waitFor(() => !doc.querySelector(".project-detail"));
           await waitFor(() => win.__pond);
           let projectLeaf;
           await waitFor(() => {

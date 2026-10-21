@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>实际页面叠化回归</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ead3a0;
+      color: #292c29;
+      font: 14px system-ui;
+    }
+    nav {
+      padding: 12px;
+      display: flex;
+      gap: 12px;
+    }
+    button {
+      min-height: 44px;
+    }
+    iframe {
+      width: 1280px;
+      height: 720px;
+      border: 0;
+      display: block;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
+  <nav>
+    <button id="run">运行叠化与中断回归</button
+    ><button id="preview">预览叠化中间帧</button>
+  </nav>
+  <iframe title="真实页面过渡"></iframe>
+  <pre id="report">等待检查</pre>
+  <script type="module">
+    const frame = document.querySelector("iframe"),
+      report = document.querySelector("#report");
+    let results = [];
+    const pause = () => new Promise((r) => setTimeout(r, 10));
+    const wait = async (test) => {
+      for (let i = 0; i < 1000; i++) {
+        const value = test();
+        if (value) return value;
+        await pause();
+      }
+      throw Error("真实页面过渡等待超时");
+    };
+    const check = (name, pass, detail) => {
+      results.push({ name, pass: !!pass, ...(detail && { detail }) });
+      report.textContent = JSON.stringify({ done: false, results }, null, 2);
+    };
+    const load = async (width, reduced = false, path = "/") => {
+      frame.style.width = width + "px";
+      frame.src = reduced ? "/tests/transition-reduced.html" : path;
+      await new Promise((r) => (frame.onload = r));
+      const win = frame.contentWindow;
+      return { win, doc: frame.contentDocument };
+    };
+    const animation = (element) =>
+      element
+        ?.getAnimations()
+        .find((a) => a.effect.getKeyframes().some((k) => "opacity" in k));
+    const midpoint = (element, a) => {
+      a.pause();
+      a.currentTime = Number(a.effect.getTiming().duration) / 2;
+      return Number(
+        element.ownerDocument.defaultView.getComputedStyle(element).opacity,
+      );
+    };
+    const open = async (doc) => {
+      await wait(
+        () => doc.querySelector(".folio").dataset.travelling === "false",
+      );
+      doc.querySelector('[data-project="mosic"]').click();
+      return wait(() => doc.querySelector(".project-detail[open]"));
+    };
+    const end = async (dialog) => {
+      await Promise.all(
+        dialog.getAnimations().map((a) => a.finished.catch(() => {})),
+      );
+    };
+    document.querySelector("#preview").onclick = async () => {
+      const { doc } = await load(1280, false, "/works?focus=mosic");
+      await wait(() => !doc.querySelector(".loading-state"));
+      const dialog = await open(doc),
+        a = animation(dialog);
+      if (a) midpoint(dialog, a);
+      report.textContent = "实际 MOSIC 详情叠化中间帧（暂停仅由此测试页执行）";
+    };
+    document.querySelector("#run").onclick = async () => {
+      results = [];
+      try {
+        for (const width of [390, 1280]) {
+          const { win, doc } = await load(width);
+          // Observe the actual first-frame handoff, not an artificial loading delay.
+          const loader = doc.querySelector(".loading-state");
+          const fade = await wait(
+            () => animation(loader) || !loader?.isConnected,
+          );
+          check(
+            `${width}: first-frame readiness fades the retained poem`,
+            fade !== true && loader?.isConnected,
+          );
+          if (fade !== true) {
+            const opacity = midpoint(loader, fade);
+            check(
+              `${width}: pond and poem coexist during 320ms fade`,
+              opacity > 0 &&
+                opacity < 1 &&
+                doc.querySelector("canvas") &&
+                fade.effect.getTiming().duration === 320,
+              { opacity },
+            );
+            fade.play();
+          }
+          await wait(() => !doc.querySelector(".loading-state"));
+          doc.querySelector(".fish-entry").click();
+          await wait(
+            () =>
+              doc.querySelector(".folio").dataset.travelling === "false" &&
+              win.location.pathname === "/works",
+          );
+          let dialog = await open(doc),
+            a = animation(dialog);
+          check(
+            `${width}: detail enters with opacity-only 220ms fade`,
+            a &&
+              a.effect.getTiming().duration === 220 &&
+              !a.effect.getKeyframes().some((k) => k.clipPath),
+          );
+          if (a) {
+            const opacity = midpoint(dialog, a);
+            check(
+              `${width}: entering detail is translucent over the gallery`,
+              opacity > 0 && opacity < 1,
+            );
+            a.play();
+            await end(dialog);
+          }
+          const before = win.history.length;
+          dialog.querySelector('[aria-label="合上这一叶"]').click();
+          dialog.querySelector('[aria-label="合上这一叶"]').click();
+          await wait(() => win.location.pathname === "/works");
+          a = animation(dialog);
+          check(
+            `${width}: repeated close retains one exiting dialog`,
+            dialog.isConnected && a && a.effect.getTiming().duration === 180,
+          );
+          if (a) {
+            const opacity = midpoint(dialog, a);
+            check(
+              `${width}: exit midpoint keeps gallery beneath and blocks click-through`,
+              opacity > 0 &&
+                opacity < 1 &&
+                dialog.open &&
+                dialog.matches(":modal"),
+            );
+            let hit;
+            await wait(() => {
+              for (let y = 100; y < 650 && !hit; y += 20)
+                for (let x = 20; x < width && !hit; x += 20)
+                  if (win.__pond.projectAt(x, y) === "mosic") hit = { x, y };
+              return hit;
+            });
+            const point = {
+              clientX: hit?.x ?? 0,
+              clientY: hit?.y ?? 0,
+              bubbles: true,
+              button: 0,
+            };
+            check(
+              `${width}: fade tap is aimed at a real underlying leaf`,
+              win.__pond.projectAt(point.clientX, point.clientY) === "mosic",
+            );
+            dialog.dispatchEvent(
+              new win.PointerEvent("pointerdown", {
+                ...point,
+                pointerType: width < 640 ? "touch" : "mouse",
+                pointerId: 1,
+              }),
+            );
+            dialog.dispatchEvent(
+              new win.PointerEvent("pointerup", {
+                ...point,
+                pointerType: width < 640 ? "touch" : "mouse",
+                pointerId: 1,
+              }),
+            );
+            dialog.dispatchEvent(
+              new win.MouseEvent("click", { ...point, detail: 1 }),
+            );
+            await pause();
+            check(
+              `${width}: tapping the fading sheet cannot activate a leaf behind it`,
+              win.location.pathname === "/works",
+            );
+            a.play();
+          }
+          await wait(() => !doc.querySelector(".project-detail"));
+          check(
+            `${width}: close stays on gallery, without double Back`,
+            win.location.pathname === "/works" && win.history.length === before,
+          );
+          dialog = await open(doc);
+          await end(dialog);
+          // Browser Back must run the very same exit; Forward cancels that exit safely.
+          win.history.back();
+          await wait(() => win.location.pathname === "/works");
+          a = animation(dialog);
+          check(
+            `${width}: browser Back fades instead of removing detail`,
+            dialog.isConnected && a,
+          );
+          if (a) midpoint(dialog, a);
+          win.history.forward();
+          await wait(() => win.location.pathname === "/works/mosic");
+          await pause();
+          await end(dialog);
+          check(
+            `${width}: Forward during exit restores opaque interactive detail`,
+            dialog.isConnected &&
+              dialog.open &&
+              Number(win.getComputedStyle(dialog).opacity) === 1,
+          );
+          dialog.dispatchEvent(new win.Event("cancel", { cancelable: true }));
+          await wait(() => !doc.querySelector(".project-detail"));
+          check(
+            `${width}: Escape cancel route completes exit`,
+            win.location.pathname === "/works",
+          );
+          dialog = await open(doc);
+          const entering = animation(dialog);
+          if (entering) {
+            entering.pause();
+            entering.currentTime = 20;
+          }
+          dialog.querySelector('[aria-label="合上这一叶"]').click();
+          await wait(() => !doc.querySelector(".project-detail"));
+          check(
+            `${width}: closing during entry does not leave a transparent modal`,
+            win.location.pathname === "/works",
+          );
+        }
+        const { win, doc } = await load(390, true, "/works/mosic");
+        let dialog = await wait(() =>
+          doc.querySelector(".project-detail[open]"),
+        );
+        await end(dialog);
+        check(
+          "reduced motion: detail is fully visible without spatial animation",
+          Number(win.getComputedStyle(dialog).opacity) === 1 &&
+            !animation(dialog) &&
+            win.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        );
+        dialog.querySelector('[aria-label="合上这一叶"]').click();
+        await wait(() => !doc.querySelector(".project-detail"));
+        check(
+          "reduced motion: close does not strand a modal",
+          win.location.pathname === "/works",
+        );
+        report.textContent = JSON.stringify(
+          { done: true, pass: results.every((r) => r.pass), results },
+          null,
+          2,
+        );
+      } catch (error) {
+        report.textContent = JSON.stringify(
+          {
+            done: true,
+            pass: false,
+            error: String(error),
+            path: frame.contentWindow.location.href,
+            travelling:
+              frame.contentDocument.querySelector(".folio")?.dataset.travelling,
+            debug: frame.contentWindow.__pond?.debug(),
+            results,
+          },
+          null,
+          2,
+        );
+      }
+    };
+  </script>
+</html>

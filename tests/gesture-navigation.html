@@ -94,6 +94,7 @@
         const { win, doc } = state();
         return (
           win.location.search.includes(id) &&
+          !doc.querySelector(".loading-state") &&
           win.__pond &&
           doc.querySelector(`[data-project="${id}"]`)?.dataset.sceneBound
         );

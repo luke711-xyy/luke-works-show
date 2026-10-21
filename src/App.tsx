@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -28,6 +29,7 @@ import { isTapGesture, shouldTrackPondPointer } from "./scene/input";
 import { updateFishLabelVisibility } from "./scene/fish-exposure";
 import ImageViewer from "./ImageViewer";
 import { imageSequence } from "./image-viewer-gestures";
+import { useOpacityTransition } from "./use-opacity-transition";
 import {
   clamp,
   galleryCenter,
@@ -86,9 +88,17 @@ function Icon({ name }: { name: "back" | "close" | "arrow" }) {
     </svg>
   );
 }
-export function PondLoading() {
+export function PondLoading({
+  visible = true,
+  onExited,
+}: {
+  visible?: boolean;
+  onExited?: () => void;
+} = {}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useOpacityTransition(ref, visible, 0, 320, onExited);
   return (
-    <div className="loading-state" role="status">
+    <div ref={ref} className="loading-state" role="status">
       <svg
         className="loading-mark"
         viewBox="0 0 128 92"
@@ -355,11 +365,13 @@ export function CaseStory({
 function ProjectDetail({
   project,
   close,
-  outline,
+  visible,
+  onExited,
 }: {
   project: Project;
   close: () => void;
-  outline: string;
+  visible: boolean;
+  onExited: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [viewer, setViewer] = useState<number | null>(null);
@@ -378,27 +390,23 @@ function ProjectDetail({
     )[1];
     return next ? warmImages([imageSource(next)]) : undefined;
   }, [project.id]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
-    if (!reduced())
-      dialog.animate(
-        [
-          { clipPath: outline, opacity: 0.5 },
-          { clipPath: "polygon(0% 0%,100% 0%,100% 100%,0% 100%)", opacity: 1 },
-        ],
-        {
-          duration: innerWidth < 640 ? 260 : 450,
-          easing: "cubic-bezier(.16,1,.3,1)",
-        },
-      );
     return () => dialog.close();
   }, []);
+  useOpacityTransition(ref, visible, 220, 180, onExited);
   return (
     <dialog
       ref={ref}
       className="project-detail"
       aria-labelledby="case-title"
+      // The retained sheet is still modal while fading. Its bubbled events
+      // must not enter the root's canvas hit-testing after the URL has changed.
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerMove={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
       onCancel={(e) => {
         e.preventDefault();
         close();
@@ -473,10 +481,17 @@ export default function App() {
   const [nav, setNav] = useState<NavigationState>(initial),
     [size, setSize] = useState({ w: innerWidth, h: innerHeight });
   const [ready, setReady] = useState(false),
+    [loadingPresent, setLoadingPresent] = useState(true),
     [fallback, setFallback] = useState(false),
     [hovered, setHovered] = useState<ProjectId | null>(null);
-  const [current, setCurrent] = useState(indexOf(nav.selected)),
-    [outline, setOutline] = useState("circle(0% at 50% 50%)");
+  const [current, setCurrent] = useState(indexOf(nav.selected));
+  const [retainedDetail, setRetainedDetail] = useState(nav.detail);
+  const detail = nav.detail ?? retainedDetail;
+  const closingDetail = useRef(false);
+  useEffect(() => {
+    if (nav.detail) setRetainedDetail(nav.detail);
+    closingDetail.current = false;
+  }, [nav.detail]);
   const root = useRef<HTMLDivElement>(null),
     canvas = useRef<HTMLCanvasElement>(null),
     gallery = useRef<HTMLDivElement>(null),
@@ -753,6 +768,7 @@ export default function App() {
       scrollMemory.current =
         history.state?.scroll ??
         indexOf(next.selected) * galleryStride(innerWidth);
+      navRef.current = next;
       setNav(next);
     };
     window.addEventListener("popstate", pop);
@@ -805,7 +821,6 @@ export default function App() {
   const detailClick = (id: ProjectId) => {
     if (navRef.current.detail === id) return;
     preloadProjectCover(id);
-    setOutline(scene.current?.getProjectOutline(id) ?? "circle(0% at 50% 50%)");
     const next: NavigationState = {
       ...navRef.current,
       page: "works",
@@ -822,6 +837,8 @@ export default function App() {
     navigate(next);
   };
   const closeDetail = () => {
+    if (!navRef.current.detail || closingDetail.current) return;
+    closingDetail.current = true;
     if (
       history.state?.detailEntry &&
       location.pathname === navigationUrl(navRef.current)
@@ -1141,16 +1158,24 @@ export default function App() {
           </div>
         </footer>
       </div>
-      {!ready && <PondLoading />}
+      {loadingPresent && (
+        <PondLoading
+          visible={!ready}
+          onExited={() => setLoadingPresent(false)}
+        />
+      )}
       <span className="sr-only" aria-live="polite">
         {hovered ? `发现${getProject(hovered).title}，点击锦鲤进入` : ""}
       </span>
-      {nav.detail && (
+      {detail && (
         <ProjectDetail
-          key={nav.detail}
-          project={getProject(nav.detail)}
+          key={detail}
+          project={getProject(detail)}
           close={closeDetail}
-          outline={outline}
+          visible={Boolean(nav.detail)}
+          onExited={() => {
+            if (!navRef.current.detail) setRetainedDetail(null);
+          }}
         />
       )}
     </div>
