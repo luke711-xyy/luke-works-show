@@ -10,6 +10,16 @@
 - DNS：仅新增已代理的 CNAME `works` → `luke-works-show.pages.dev`，TTL 自动。
 - `luke-xu.asia` 与 `www.luke-xu.asia` 已用于现有站点，本次不修改其绑定。
 
+## 2026-10-21 详情与加载叠化、锦鲤光标尺寸发布
+
+- 运行代码提交：`147ac14000b1662d99b51f19b6307fc2ceaef8e1`，已推送 GitHub `main`；本发布记录另作纯文档提交。
+- 不变部署地址：https://745c2232.luke-works-show.pages.dev/。正式入口仍为 https://works.luke-xu.asia/，默认平台域名仍可用。
+- 新入口 `index-BUgxhFOm.js`、场景包 `PondScene-CmGCSQ1P.js`、样式 `index-n2G6-TdV.css`。两份原生锦鲤 SVG 以 `?v=2` 更新，避免旧版日缓存。
+- 二／三级进入 220ms、退出 180ms 透明度叠化；古诗加载层在首帧／回退就绪后 320ms 淡出。保留同一场景，不再使用叶形全屏扩展；退出中保留模态与指针隔离，避免点击冒泡重新打开背后荷叶。重复关闭、历史后退与前进中断均已检查。基础光标可见轮廓约 20px，可点击态约 28px，鱼头热区不变；减少动态时叠化缩至 1ms。
+- 发布前完整 185 项自动测试（23 文件）、TypeScript、生产构建、格式与 diff 检查通过。真实应用浏览器回归：28 项过渡／中断／降低动态检查、52 项手机尺寸与桌面项目入口检查、53 项焦点／查看器／回退检查全部通过。真机 iOS／Android 未单独认证。
+- 三个域名的首页、Worldmaker 查询链接和 LanBridge 深链接共 9 条 HTTP 200，均引用新入口；各域名 7 个 JS/CSS 及两份光标与本地文件逐字节相同。24 个素材源哈希、23 张清晰图像素及 48 个正式域名媒体 URL 检查通过。
+- 正式域名实际完成首页进入长卷、点击 MOSIC、打开图片、原生 Escape 仅关闭图片、关闭详情及返回首页。最终无残留 dialog／加载层，无 warn/error，读回新入口脚本。验收截图 `.impeccable/review/transition-release-live.png` 为真实线上首页，不是叠化中间帧。未改 DNS、主域名或 www。
+
 ## 2026-10-21 加载花叶剪影重绘发布
 
 - 运行代码提交：`bd63d88fb909f93b10aea6975c713b237e210514`，已推送 GitHub `main`；本记录另作纯文档提交。
