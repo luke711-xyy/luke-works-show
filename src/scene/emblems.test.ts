@@ -20,6 +20,38 @@ function dispose(group: THREE.Group) {
   materials.forEach((m) => m.dispose());
 }
 
+// Compare clearance in the boat's frame: world-axis bounding boxes can
+// overlap merely because the entire miniature is presented at an angle.
+function boundsInFrame(object: THREE.Object3D, frame: THREE.Object3D) {
+  const bounds = new THREE.Box3();
+  const inverse = frame.matrixWorld.clone().invert();
+  const transform = new THREE.Matrix4(),
+    instance = new THREE.Matrix4();
+  const point = new THREE.Vector3();
+  object.traverse((part) => {
+    if (!(part instanceof THREE.Mesh)) return;
+    part.geometry.computeBoundingBox();
+    const box = part.geometry.boundingBox!;
+    const count = part instanceof THREE.InstancedMesh ? part.count : 1;
+    for (let i = 0; i < count; i++) {
+      transform.multiplyMatrices(inverse, part.matrixWorld);
+      if (part instanceof THREE.InstancedMesh) {
+        part.getMatrixAt(i, instance);
+        transform.multiply(instance);
+      }
+      for (let corner = 0; corner < 8; corner++) {
+        point.set(
+          corner & 1 ? box.max.x : box.min.x,
+          corner & 2 ? box.max.y : box.min.y,
+          corner & 4 ? box.max.z : box.min.z,
+        );
+        bounds.expandByPoint(point.applyMatrix4(transform));
+      }
+    }
+  });
+  return bounds;
+}
+
 describe("project emblem motion", () => {
   it("builds a seven-string guqin and contacts each bronze chime from the front", () => {
     const emblem = createEmblem("mosic", 100);
@@ -210,6 +242,160 @@ describe("project emblem motion", () => {
     expect(standBounds.max.y - standBounds.min.y).toBeGreaterThan(17);
     expect(boardBounds.min.y).toBeGreaterThan(20);
     expect(boardBounds.min.y - standBounds.max.y).toBeLessThan(3);
+    dispose(emblem.group);
+  });
+
+  it("replaces the sail with an open-ended arched wupeng canopy", () => {
+    const emblem = createEmblem("lanbridge", 100);
+    const canopy = emblem.group.getObjectByName("boat-canopy");
+    expect(canopy).toBeDefined();
+    expect(emblem.group.getObjectByName("boat-sail")).toBeUndefined();
+    const boat = emblem.group.getObjectByName("boat")!;
+    emblem.group.updateMatrixWorld(true);
+    const ray = (origin: THREE.Vector3, direction: THREE.Vector3) =>
+      new THREE.Raycaster(
+        boat.localToWorld(origin),
+        direction.transformDirection(boat.matrixWorld),
+        0,
+        100,
+      ).intersectObject(canopy!, true);
+    expect(
+      ray(new THREE.Vector3(-8, 55, 0), new THREE.Vector3(0, -1, 0)).length,
+    ).toBeGreaterThan(0);
+    expect(
+      ray(new THREE.Vector3(22, 16, 0), new THREE.Vector3(-1, 0, 0)),
+    ).toHaveLength(0);
+    dispose(emblem.group);
+  });
+
+  it("keeps the boatman's hat and rain cape clear of the canopy throughout punting", () => {
+    const emblem = createEmblem("lanbridge", 100);
+    const body = emblem.group.getObjectByName("boatman-body");
+    const canopy = emblem.group.getObjectByName("boat-canopy");
+    const boat = emblem.group.getObjectByName("boat")!;
+    expect(body).toBeDefined();
+    expect(body!.getObjectByName("boatman-straw-hat")).toBeDefined();
+    expect(body!.getObjectByName("boatman-rain-cape")).toBeDefined();
+    for (let time = 0; time <= 6; time += 0.1) {
+      emblem.animate(time);
+      emblem.group.updateMatrixWorld(true);
+      const bodyBounds = boundsInFrame(body!, boat);
+      const roofBounds = boundsInFrame(canopy!, boat);
+      expect(
+        bodyBounds.intersectsBox(roofBounds),
+        JSON.stringify({
+          time,
+          body: [bodyBounds.min.toArray(), bodyBounds.max.toArray()],
+          roof: [roofBounds.min.toArray(), roofBounds.max.toArray()],
+        }),
+      ).toBe(false);
+    }
+    dispose(emblem.group);
+  });
+
+  it("keeps both hands gripping the moving punt pole and joins the stroke loop smoothly", () => {
+    const emblem = createEmblem("lanbridge", 100);
+    const pole = emblem.group.getObjectByName("boat-punting-pole");
+    expect(pole).toBeDefined();
+    const tips: THREE.Vector3[] = [];
+    const poses: number[] = [];
+    for (let time = 0; time < 6; time += 0.1) {
+      emblem.animate(time);
+      emblem.group.updateMatrixWorld(true);
+      const bottom = pole!.localToWorld(new THREE.Vector3(0, -0.5, 0));
+      const top = pole!.localToWorld(new THREE.Vector3(0, 0.5, 0));
+      const line = new THREE.Line3(bottom, top);
+      tips.push(bottom);
+      poses.push(emblem.group.getObjectByName("boatman-body")!.rotation.z);
+      for (const side of ["left", "right"]) {
+        const hand = emblem.group.getObjectByName(`boatman-hand-${side}`)!;
+        const point = hand.getWorldPosition(new THREE.Vector3());
+        expect(
+          line
+            .closestPointToPoint(point, true, new THREE.Vector3())
+            .distanceTo(point),
+        ).toBeLessThan(0.02);
+        expect(
+          emblem.group.getObjectByName(`boatman-upper-arm-${side}`)!.scale.y,
+          `upper arm ${side} at ${time.toFixed(2)}s`,
+        ).toBeCloseTo(8.9, 3);
+        expect(
+          emblem.group.getObjectByName(`boatman-forearm-${side}`)!.scale.y,
+        ).toBeCloseTo(8.6, 3);
+      }
+    }
+    expect(
+      Math.max(...tips.map((p) => p.y)) - Math.min(...tips.map((p) => p.y)),
+    ).toBeGreaterThan(5);
+    expect(Math.max(...poses) - Math.min(...poses)).toBeGreaterThan(0.05);
+    emblem.animate(5.999);
+    emblem.group.updateMatrixWorld(true);
+    const before = pole!.localToWorld(new THREE.Vector3(0, -0.5, 0));
+    emblem.animate(6);
+    emblem.group.updateMatrixWorld(true);
+    expect(
+      pole!.localToWorld(new THREE.Vector3(0, -0.5, 0)).distanceTo(before),
+    ).toBeLessThan(0.05);
+    dispose(emblem.group);
+  });
+
+  it("holds a readable static punting pose for reduced motion without reallocating model resources", () => {
+    const emblem = createEmblem("lanbridge", 100);
+    expect(emblem.group.getObjectByName("boatman-body")).toBeDefined();
+    const pose = (time: number) => {
+      emblem.animate(time, true);
+      emblem.group.updateMatrixWorld(true);
+      const matrices: number[][] = [];
+      emblem.group.traverse((o) => matrices.push(o.matrixWorld.toArray()));
+      return matrices;
+    };
+    expect(pose(1)).toEqual(pose(17));
+    const resources = () => {
+      const ids: string[] = [];
+      emblem.group.traverse((o) => {
+        if (o instanceof THREE.Mesh)
+          ids.push(
+            o.uuid,
+            o.geometry.uuid,
+            ...(Array.isArray(o.material) ? o.material : [o.material]).map(
+              (m) => m.uuid,
+            ),
+          );
+      });
+      return ids;
+    };
+    const before = resources();
+    for (let t = 0; t < 8; t += 0.1) emblem.animate(t);
+    expect(resources()).toEqual(before);
+    dispose(emblem.group);
+  });
+
+  it("plants and recovers the punt pole without piercing the hull, bow deck or straw hat", () => {
+    const emblem = createEmblem("lanbridge", 100);
+    const pole = emblem.group.getObjectByName("boat-punting-pole")!;
+    const obstacles = [
+      emblem.group.getObjectByName("boat-hull")!,
+      emblem.group.getObjectByName("boat-bow-deck")!,
+      emblem.group.getObjectByName("boatman-straw-hat")!,
+    ];
+    for (let time = 0; time < 6; time += 0.05) {
+      emblem.animate(time);
+      emblem.group.updateMatrixWorld(true);
+      const bottom = pole.localToWorld(new THREE.Vector3(0, -0.5, 0));
+      const direction = pole
+        .localToWorld(new THREE.Vector3(0, 0.5, 0))
+        .sub(bottom);
+      const ray = new THREE.Raycaster(
+        bottom,
+        direction.clone().normalize(),
+        0.5,
+        direction.length(),
+      );
+      expect(
+        ray.intersectObjects(obstacles, true),
+        `pole clearance at ${time.toFixed(2)}s`,
+      ).toHaveLength(0);
+    }
     dispose(emblem.group);
   });
 

@@ -31,12 +31,19 @@
   <nav>
     <button id="repro">复现一次触摸</button>
     <button id="suite">手机与电脑完整回归</button>
+    <button id="phone-preview">预览当前项目手机长卷</button>
+    <button id="desktop-preview">预览当前项目电脑长卷</button>
   </nav>
   <iframe title="实际作品集"></iframe>
   <pre id="report">等待检查</pre>
   <script type="module">
     import { Box3, Vector3 } from "three";
     import { projects } from "/src/data/projects.ts";
+    const selected = projects.find(
+      (project) =>
+        project.id === new URLSearchParams(location.search).get("id"),
+    );
+    const projectSet = selected ? [selected] : projects;
 
     const iframe = document.querySelector("iframe");
     const report = document.querySelector("#report");
@@ -199,9 +206,10 @@
       render();
     };
     const dragAndKeyboard = async (width) => {
-      await load("mosic", width);
+      const id = selected?.id ?? "mosic";
+      await load(id, width);
       const { doc } = state();
-      const point = pointOnLeaf("mosic", "title");
+      const point = pointOnLeaf(id, "title");
       const target = doc.elementFromPoint(point.x, point.y);
       const moved = { x: point.x + 40, y: point.y };
       const type = width < 640 ? "touch" : "mouse";
@@ -215,7 +223,7 @@
         test: "drag-does-not-open",
         pass: !doc.querySelector(".project-detail[open]"),
       });
-      click(doc.querySelector('[data-project="mosic"]'), point, 0);
+      click(doc.querySelector(`[data-project="${id}"]`), point, 0);
       await settle();
       results.push({
         width,
@@ -233,10 +241,10 @@
       errors = [];
       render();
       try {
-        if (!full) await tap(projects[0], 390);
+        if (!full) await tap(projectSet[0], 390);
         else
           for (const width of [390, 1280]) {
-            for (const project of projects)
+            for (const project of projectSet)
               for (const region of ["icon", "title", "empty"])
                 await tap(project, width, region);
             await dragAndKeyboard(width);
@@ -250,6 +258,10 @@
     };
     document.querySelector("#repro").onclick = () => run(false);
     document.querySelector("#suite").onclick = () => run(true);
-    iframe.src = "/works?focus=mosic";
+    document.querySelector("#phone-preview").onclick = () =>
+      load(selected?.id ?? "mosic", 390);
+    document.querySelector("#desktop-preview").onclick = () =>
+      load(selected?.id ?? "mosic", 1280);
+    iframe.src = `/works?focus=${selected?.id ?? "mosic"}`;
   </script>
 </html>

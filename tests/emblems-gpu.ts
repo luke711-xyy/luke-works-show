@@ -12,6 +12,7 @@ const hoverCycle = params.has("hover-cycle");
 const models = document.querySelector("#models")!;
 const status = document.querySelector("#status")!;
 const selected = params.get("id");
+const zoom = Math.max(1, Math.min(2.5, Number(params.get("zoom")) || 1));
 if (selected) {
   models.setAttribute(
     "style",
@@ -50,10 +51,10 @@ const samples = projects
     setPondLayer(leaf.group, 40);
     setPondLayer(emblem.group, 60);
     const camera = new THREE.OrthographicCamera(
-      -140,
-      140,
-      142,
-      -125,
+      -140 / zoom,
+      140 / zoom,
+      142 / zoom,
+      -125 / zoom,
       0.1,
       7000,
     );

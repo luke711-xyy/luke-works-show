@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { ProjectId } from "../data/projects";
 import { ancientMusic } from "./musical-emblem";
 import { clepsydra } from "./clepsydra-emblem";
+import { createBoatman } from "./boatman";
 import {
   bambooScrolls,
   pavilion,
@@ -10,10 +11,7 @@ import {
   teaSet,
 } from "./chinese-emblems";
 
-const ivory = "#eee1b9",
-  gold = "#c5a05c",
-  red = "#b6432e",
-  water = "#79968d",
+const water = "#79968d",
   TAU = Math.PI * 2;
 
 export type Emblem = {
@@ -60,24 +58,6 @@ function tube(points: THREE.Vector3[], radius: number, color: string) {
     new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 32, radius, 6),
     color,
   );
-}
-
-function rod(
-  a: THREE.Vector3,
-  b: THREE.Vector3,
-  radius: number,
-  color: string,
-) {
-  const result = mesh(
-    new THREE.CylinderGeometry(radius, radius, a.distanceTo(b), 10),
-    color,
-  );
-  result.position.copy(a).lerp(b, 0.5);
-  result.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    b.clone().sub(a).normalize(),
-  );
-  return result;
 }
 
 // Ordered coverage makes fading water marks actual stippled geometry. Their
@@ -150,7 +130,7 @@ function littleBoat(group: THREE.Group): Emblem["animate"] {
     const u = row / rows,
       x = (u - 0.5) * 87;
     const width = Math.sin(u * Math.PI) ** 0.65 * 16;
-    const ends = Math.abs(u * 2 - 1) ** 3 * 7;
+    const ends = Math.abs(u * 2 - 1) ** 3 * 13;
     for (let column = 0; column <= columns; column++) {
       const v = (column / columns) * 2 - 1;
       const y = -5 + Math.abs(v) ** 1.5 * 12 + ends;
@@ -179,20 +159,20 @@ function littleBoat(group: THREE.Group): Emblem["animate"] {
   hull.computeVertexNormals();
   place(
     boat,
-    mesh(hull, "#a37a46", { side: THREE.DoubleSide }),
+    mesh(hull, "#6b5039", { side: THREE.DoubleSide }),
     0,
     0,
     0,
     "boat-hull",
   );
-  boat.add(tube(rimLeft, 1.25, gold), tube(rimRight, 1.25, gold));
+  boat.add(tube(rimLeft, 0.85, "#b7a07a"), tube(rimRight, 0.85, "#b7a07a"));
   // The keel sits below the waterline. A sealed raised inner bottom prevents
   // the exterior pond surface from appearing inside the open cabin as it rocks.
   const floorHeight = 1.4;
-  const floorEnd = 43.5 * Math.cbrt((floorHeight + 5) / 7);
+  const floorEnd = 43.5 * Math.cbrt((floorHeight + 5) / 13);
   const floorWidth = (x: number) => {
     const u = x / 87 + 0.5;
-    const ends = Math.abs(u * 2 - 1) ** 3 * 7;
+    const ends = Math.abs(u * 2 - 1) ** 3 * 13;
     return (
       Math.sin(u * Math.PI) ** 0.65 *
       16 *
@@ -222,76 +202,153 @@ function littleBoat(group: THREE.Group): Emblem["animate"] {
     0,
     "boat-cabin-floor",
   );
-  for (let x = -36; x <= 36; x += 6)
+  for (let x = -30; x <= 30; x += 6)
     place(
       boat,
       mesh(new THREE.BoxGeometry(0.25, 0.12, floorWidth(x) * 1.94), "#89653f"),
       x,
       floorHeight + 0.03,
     );
-  for (const x of [-22, 1, 23])
-    place(boat, mesh(new THREE.BoxGeometry(6, 2.2, 24), "#d0ad6e"), x, 5);
-  boat.add(
-    rod(
-      new THREE.Vector3(-7, 1, 0),
-      new THREE.Vector3(-7, 77, 0),
-      1.4,
-      "#8e7046",
-    ),
+  for (const x of [-20, -1])
+    place(boat, mesh(new THREE.BoxGeometry(5, 1.8, 24), "#b79a6e"), x, 5);
+
+  const deckPositions: number[] = [],
+    deckIndices: number[] = [];
+  const deckHeight = (x: number) =>
+    6.5 + Math.max(0, (x - 32) / 11.5) ** 2 * 1.7;
+  for (let row = 0; row <= 20; row++) {
+    const x = 18 + (row / 20) * 25.5;
+    const width = Math.sin((x / 87 + 0.5) * Math.PI) ** 0.65 * 14.8;
+    deckPositions.push(x, deckHeight(x), -width, x, deckHeight(x), width);
+    if (row < 20) {
+      const a = row * 2;
+      deckIndices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+  }
+  const deck = new THREE.BufferGeometry();
+  deck.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(deckPositions, 3),
   );
-  const sailPositions: number[] = [],
-    sailIndices: number[] = [];
-  const sailRows = 16;
-  for (let row = 0; row <= sailRows; row++) {
-    const t = row / sailRows;
-    for (let column = 0; column <= 8; column++) {
-      const u = column / 8;
-      sailPositions.push(
-        -4 + u * t * 34,
-        72 - t * 52,
-        2 + Math.sin(u * Math.PI) * Math.sin(t * Math.PI) * 8,
-      );
-      if (row < sailRows && column < 8) {
-        const a = row * 9 + column;
-        sailIndices.push(a, a + 9, a + 1, a + 1, a + 9, a + 10);
+  deck.setIndex(deckIndices);
+  deck.computeVertexNormals();
+  place(
+    boat,
+    mesh(deck, "#a68a60", { side: THREE.DoubleSide }),
+    0,
+    0,
+    0,
+    "boat-bow-deck",
+  );
+  for (let x = 19; x < 43; x += 4) {
+    const width = Math.sin((x / 87 + 0.5) * Math.PI) ** 0.65 * 29;
+    place(
+      boat,
+      mesh(new THREE.BoxGeometry(0.22, 0.1, width), "#725a3e"),
+      x,
+      deckHeight(x) + 0.08,
+    );
+  }
+
+  // A thin, closed shell with two genuinely open archways. Ribs sit proud of
+  // the cover, so their highlights cannot z-fight with the dark woven surface.
+  const canopyPositions: number[] = [],
+    canopyColors: number[] = [],
+    canopyIndices: number[] = [];
+  const lengthSteps = 8,
+    arcSteps = 28,
+    stride = arcSteps + 1;
+  const layerSize = (lengthSteps + 1) * stride;
+  for (let layer = 0; layer < 2; layer++) {
+    for (let row = 0; row <= lengthSteps; row++) {
+      const u = row / lengthSteps,
+        x = -28 + u * 40;
+      for (let i = 0; i <= arcSteps; i++) {
+        const angle = (i / arcSteps) * Math.PI;
+        canopyPositions.push(
+          x,
+          7 + Math.sin(angle) * (19 - layer * 0.55),
+          Math.cos(angle) * (14 - layer * 0.55),
+        );
+        const tone = new THREE.Color(layer ? "#333830" : "#3b413b").lerp(
+          new THREE.Color("#66685a"),
+          layer ? 0 : 0.25 * Math.sin(angle) + 0.08 * Math.cos(u * 8),
+        );
+        canopyColors.push(tone.r, tone.g, tone.b);
+        if (row < lengthSteps && i < arcSteps) {
+          const a = layer * layerSize + row * stride + i;
+          canopyIndices.push(
+            a,
+            a + stride,
+            a + 1,
+            a + 1,
+            a + stride,
+            a + stride + 1,
+          );
+        }
       }
     }
   }
-  const sailGeometry = new THREE.BufferGeometry();
-  sailGeometry.setAttribute(
+  const join = (a: number, b: number) =>
+    canopyIndices.push(a, b, a + layerSize, b, b + layerSize, a + layerSize);
+  for (let row = 0; row < lengthSteps; row++) {
+    join(row * stride, (row + 1) * stride);
+    join(row * stride + arcSteps, (row + 1) * stride + arcSteps);
+  }
+  for (let i = 0; i < arcSteps; i++) {
+    join(i, i + 1);
+    join(lengthSteps * stride + i, lengthSteps * stride + i + 1);
+  }
+  const canopyGeometry = new THREE.BufferGeometry();
+  canopyGeometry.setAttribute(
     "position",
-    new THREE.Float32BufferAttribute(sailPositions, 3).setUsage(
-      THREE.DynamicDrawUsage,
-    ),
+    new THREE.Float32BufferAttribute(canopyPositions, 3),
   );
-  sailGeometry.setIndex(sailIndices);
-  sailGeometry.computeVertexNormals();
-  place(
-    boat,
-    mesh(sailGeometry, ivory, { side: THREE.DoubleSide }),
-    0,
-    0,
-    0,
-    "boat-sail",
+  canopyGeometry.setAttribute(
+    "color",
+    new THREE.Float32BufferAttribute(canopyColors, 3),
   );
-  const sail = sailGeometry.getAttribute("position") as THREE.BufferAttribute;
-  const pennant = place(
-    boat,
-    mesh(
-      new THREE.ShapeGeometry(
-        new THREE.Shape([
-          new THREE.Vector2(-7, 76),
-          new THREE.Vector2(8, 72),
-          new THREE.Vector2(-7, 68),
-        ]),
+  canopyGeometry.setIndex(canopyIndices);
+  canopyGeometry.computeVertexNormals();
+  const canopy = place(boat, new THREE.Group(), 0, 0, 0, "boat-canopy");
+  canopy.add(
+    mesh(canopyGeometry, "#ffffff", {
+      vertexColors: true,
+      side: THREE.DoubleSide,
+    }),
+  );
+  for (const x of [-28.2, -20, -12, -4, 4, 12.2]) {
+    const arch = Array.from({ length: 29 }, (_, i) => {
+      const angle = (i / 28) * Math.PI;
+      return new THREE.Vector3(
+        x,
+        7 + Math.sin(angle) * 19.45,
+        Math.cos(angle) * 14.45,
+      );
+    });
+    canopy.add(tube(arch, 0.38, "#8a7959"));
+  }
+  for (const angle of [0.44, 1.05, 2.1, 2.7]) {
+    canopy.add(
+      tube(
+        [
+          new THREE.Vector3(
+            -28,
+            7 + Math.sin(angle) * 19.25,
+            Math.cos(angle) * 14.25,
+          ),
+          new THREE.Vector3(
+            12,
+            7 + Math.sin(angle) * 19.25,
+            Math.cos(angle) * 14.25,
+          ),
+        ],
+        0.17,
+        "#5d6051",
       ),
-      red,
-      { side: THREE.DoubleSide },
-    ),
-    0,
-    0,
-    1,
-  );
+    );
+  }
+  const animateBoatman = createBoatman(boat, group);
   const ripples = Array.from({ length: 3 }, (_, i) => {
     const ripple = new THREE.Mesh(
       new THREE.TorusGeometry(1, 0.009, 4, 80),
@@ -312,21 +369,7 @@ function littleBoat(group: THREE.Group): Emblem["animate"] {
       -0.17 + Math.sin(t * 0.3) * 0.1,
       Math.sin(t * 1.1) * 0.025,
     );
-    pennant.rotation.y = Math.sin(t * 1.6) * 0.12;
-    for (let row = 0; row <= sailRows; row++) {
-      const v = row / sailRows;
-      for (let column = 0; column <= 8; column++) {
-        const u = column / 8;
-        sail.setZ(
-          row * 9 + column,
-          2 +
-            Math.sin(u * Math.PI) *
-              Math.sin(v * Math.PI) *
-              (8 + Math.sin(t * 1.5 - v * 4) * 1.4),
-        );
-      }
-    }
-    sail.needsUpdate = true;
+    animateBoatman(t);
     ripples.forEach((ripple, i) => {
       const age = (t * 0.17 + i / 3) % 1;
       ripple.scale.set(32 + age * 32, 20 + age * 19, 1);
